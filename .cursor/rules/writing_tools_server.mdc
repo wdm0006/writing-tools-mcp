@@ -1,0 +1,36 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Writing Tools MCP Server (`server.py`)
+
+This file defines a FastMCP server ([server.py](mdc:server.py)) that provides various tools for text analysis. It uses libraries like `spacy`, `textstat`, `pyspellchecker`, and `markdown-it-py`.
+
+## Main Components
+
+-   **`mcp = FastMCP(...)`**: The main server instance.
+-   **`nlp = spacy.load("en_core_web_sm")`**: Loads the spaCy language model for natural language processing tasks. It handles downloading the model if it's not present.
+-   **`preprocess_text(text, ...)`**: A helper function used by several tools to tokenize, lemmatize, and optionally remove stopwords from text.
+-   **`parse_markdown_sections(text)`**: Parses Markdown text into sections based on headings (H1-H6), returning a dictionary. It uses `_render_tokens_to_text` internally.
+-   **`split_paragraphs(text)`**: Splits text into paragraphs based on double newlines.
+
+## Available Tools
+
+The server exposes the following tools via the `@mcp.tool()` decorator:
+
+-   **`list_tools()`**: Lists all available tools.
+-   **`character_count(text)`**: Counts characters.
+-   **`word_count(text)`**: Counts words (split by whitespace).
+-   **`spellcheck(text)`**: Finds potentially misspelled words.
+-   **`readability_score(text, level)`**: Calculates Flesch Reading Ease, Flesch-Kincaid Grade, and Gunning Fog scores. Can analyze the `full` text, by `section` (Markdown headings), or by `paragraph`.
+-   **`reading_time(text, level)`**: Estimates reading time. Can analyze the `full` text, by `section`, or by `paragraph`.
+-   **`keyword_density(text, keyword)`**: Calculates the density of a specific keyword.
+-   **`keyword_frequency(text, remove_stopwords)`**: Counts the frequency of each word/lemma.
+-   **`top_keywords(text, top_n, remove_stopwords)`**: Finds the most frequent keywords.
+-   **`keyword_context(text, keyword)`**: Extracts sentences containing a specific keyword or its lemma.
+-   **`passive_voice_detection(text)`**: Detects sentences potentially in passive voice.
+
+## Execution
+
+The server is started when the script is run directly: `if __name__ == "__main__": mcp.run()`.
