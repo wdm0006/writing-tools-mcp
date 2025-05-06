@@ -307,6 +307,79 @@ def split_paragraphs(text):
     return [p.strip() for p in paragraphs if p.strip()]
 
 
+def strip_markdown_markup(text: str) -> str:
+    """
+    Strips markdown markup from text, extracting a plain text representation.
+    Handles links (uses link text) and images (uses alt text).
+    Aims for a simple and reliable extraction, not exhaustive.
+    """
+    md = MarkdownIt()
+    tokens = md.parse(text)
+
+    content_parts = []
+
+    for token in tokens:
+        if token.type == "text":
+            content_parts.append(token.content)
+        elif token.type == "image":
+            # token.content is the alt text for an image
+            content_parts.append(token.content)
+        elif token.type == "code_inline":
+            content_parts.append(token.content)
+        elif token.type == "fence":  # Block code
+            content_parts.append(token.content)
+            if content_parts and not content_parts[-1].endswith("\n"):
+                content_parts.append("\n")
+        elif token.type == "softbreak":
+            content_parts.append("\n")
+        elif token.type == "hardbreak":
+            content_parts.append("\n\n")
+        elif token.type == "html_inline" or token.type == "html_block":
+            # For simplicity, ignoring HTML content/tags as per "simple and reliable" for MD.
+            pass
+        elif token.type == "inline" and token.children:
+            # Process children of inline tokens (e.g., text within emphasis, strong, links)
+            for child in token.children:
+                if child.type == "text":
+                    content_parts.append(child.content)
+                elif child.type == "image":
+                    content_parts.append(child.content)  # alt text
+                elif child.type == "code_inline":
+                    content_parts.append(child.content)
+                elif child.type == "softbreak":
+                    content_parts.append("\n")
+                elif child.type == "hardbreak":
+                    content_parts.append("\n\n")
+        elif token.type == "paragraph_close":
+            current_text_so_far = "".join(content_parts)
+            if content_parts and not current_text_so_far.endswith("\n\n"):
+                if current_text_so_far.endswith("\n"):
+                    content_parts.append("\n")
+                else:
+                    content_parts.append("\n\n")
+            elif (
+                not content_parts
+            ):  # Handle case of empty paragraph if it results in tokens
+                content_parts.append("\n\n")
+        elif token.type == "list_item_close":
+            current_text_so_far = "".join(content_parts)
+            if (
+                current_text_so_far
+                and not current_text_so_far.endswith("\n")
+                and not current_text_so_far.endswith("\n\n")
+            ):
+                content_parts.append("\n")
+
+    result = "".join(content_parts)
+
+    # Normalize spacing
+    result = re.sub(r" +", " ", result)
+    result = re.sub(r"\n{3,}", "\n\n", result)
+    result = result.strip()
+
+    return result
+
+
 @mcp.tool()
 def list_tools():
     """Lists the names of all available tools provided by this server.
@@ -398,6 +471,7 @@ def readability_score(text: str, level: str = "full") -> dict:
     """
 
     def get_scores(text_segment):
+        text_segment = strip_markdown_markup(text_segment)
         if not text_segment or len(text_segment.split()) < 3:
             return {"flesch": None, "kincaid": None, "fog": None}
         return {
@@ -481,11 +555,13 @@ def reading_time(text: str, level: str = "full") -> dict:
               - If `level` is invalid: `{"error": str}`
     """
 
+    ms_per_character = 28 # default is ~14
+
     def get_reading_time(text_segment):
         if not text_segment:
             return 0
         # Convert milliseconds to minutes
-        return textstat.reading_time(text_segment) / 60000
+        return textstat.reading_time(text_segment, ms_per_char=ms_per_character) / 60
 
     if level == "full":
         return {"full_text": get_reading_time(text)}
