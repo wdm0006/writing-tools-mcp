@@ -1,17 +1,15 @@
 from server.server import (
-    preprocess_text,
+    keyword_context,
     keyword_density,
     keyword_frequency,
-    top_keywords,
-    keyword_context,
     passive_voice_detection,
+    preprocess_text,
+    top_keywords,
 )
 
 # --- Test preprocess_text Helper ---
 
-TEXT_FOR_PREPROCESSING = (
-    "The quick brown foxes jumped over the lazy dogs. Running fast!"
-)
+TEXT_FOR_PREPROCESSING = "The quick brown foxes jumped over the lazy dogs. Running fast!"
 
 
 def test_preprocess_text_defaults():
@@ -35,19 +33,14 @@ def test_preprocess_text_no_stopwords():
         "run",
         "fast",
     ]
-    assert (
-        preprocess_text(TEXT_FOR_PREPROCESSING, remove_stopwords=False, lemmatize=True)
-        == expected
-    )
+    assert preprocess_text(TEXT_FOR_PREPROCESSING, remove_stopwords=False, lemmatize=True) == expected
 
 
 def test_preprocess_text_no_lemmatize():
     """Test preprocess_text without lemmatizing (remove_stopwords=True)."""
     # Note: 'jumped' might still be lemmatized depending on spaCy model details, focusing on 'running'
     expected = ["quick", "brown", "foxes", "jumped", "lazy", "dogs", "running", "fast"]
-    result = preprocess_text(
-        TEXT_FOR_PREPROCESSING, remove_stopwords=True, lemmatize=False
-    )
+    result = preprocess_text(TEXT_FOR_PREPROCESSING, remove_stopwords=True, lemmatize=False)
     assert result == expected
 
 
@@ -66,10 +59,7 @@ def test_preprocess_text_no_processing():
         "running",
         "fast",
     ]
-    assert (
-        preprocess_text(TEXT_FOR_PREPROCESSING, remove_stopwords=False, lemmatize=False)
-        == expected
-    )
+    assert preprocess_text(TEXT_FOR_PREPROCESSING, remove_stopwords=False, lemmatize=False) == expected
 
 
 def test_preprocess_text_empty():
@@ -193,9 +183,7 @@ ACTIVE_SENTENCE_1 = "The dog chased the ball."
 PASSIVE_SENTENCE_1 = "The ball was chased by the dog."
 ACTIVE_SENTENCE_2 = "The team completed the project."
 PASSIVE_SENTENCE_2 = "The project was completed by the team."
-MIXED_TEXT = (
-    f"{ACTIVE_SENTENCE_1} {PASSIVE_SENTENCE_1} {ACTIVE_SENTENCE_2} {PASSIVE_SENTENCE_2}"
-)
+MIXED_TEXT = f"{ACTIVE_SENTENCE_1} {PASSIVE_SENTENCE_1} {ACTIVE_SENTENCE_2} {PASSIVE_SENTENCE_2}"
 
 
 def test_passive_voice_detection_passive():

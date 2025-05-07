@@ -1,5 +1,5 @@
 from server.server import reading_time
-import textstat as ts
+
 
 def test_reading_time_is_unusually_low_for_long_text():
     phrase = "Lorem ipsum dolor sit amet "
@@ -16,6 +16,6 @@ def test_reading_time_is_unusually_low_for_long_text():
     estimated_tool_minutes = result.get("full_text")
 
     assert estimated_tool_minutes is not None, "Reading time should be calculated."
-    
+
     assert estimated_tool_minutes > (expected_time_lower_typical_minutes / 2)
     assert estimated_tool_minutes < (expected_time_lower_typical_minutes * 2)

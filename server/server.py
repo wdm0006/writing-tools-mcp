@@ -11,20 +11,19 @@
 # ]
 # ///
 
-from mcp.server.fastmcp import FastMCP
-from spellchecker import SpellChecker
-from textstat import flesch_reading_ease, flesch_kincaid_grade, gunning_fog, textstat
-from collections import Counter
-import spacy
+import logging
 import re
+from collections import Counter
+
+import spacy
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
-import logging
+from mcp.server.fastmcp import FastMCP
+from spellchecker import SpellChecker
+from textstat import flesch_kincaid_grade, flesch_reading_ease, gunning_fog, textstat
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 mcp = FastMCP("Writing Tools MCP Server")
@@ -52,28 +51,16 @@ def preprocess_text(text, remove_stopwords=True, lemmatize=True):
 
     if remove_stopwords and lemmatize:
         # Return lemmatized tokens that aren't stopwords, punctuation, or whitespace
-        return [
-            token.lemma_
-            for token in doc
-            if not token.is_stop and not token.is_punct and not token.is_space
-        ]
+        return [token.lemma_ for token in doc if not token.is_stop and not token.is_punct and not token.is_space]
     elif remove_stopwords:
         # Return tokens that aren't stopwords, punctuation, or whitespace
-        return [
-            token.text
-            for token in doc
-            if not token.is_stop and not token.is_punct and not token.is_space
-        ]
+        return [token.text for token in doc if not token.is_stop and not token.is_punct and not token.is_space]
     elif lemmatize:
         # Return lemmatized tokens that aren't punctuation or whitespace
-        return [
-            token.lemma_ for token in doc if not token.is_punct and not token.is_space
-        ]
+        return [token.lemma_ for token in doc if not token.is_punct and not token.is_space]
     else:
         # Return all tokens that aren't punctuation or whitespace
-        return [
-            token.text for token in doc if not token.is_punct and not token.is_space
-        ]
+        return [token.text for token in doc if not token.is_punct and not token.is_space]
 
 
 def _render_tokens_to_text(tokens: list[Token]) -> str:
@@ -189,9 +176,7 @@ def parse_markdown_sections(text):
 
             # Extract heading key from the NEXT inline token
             if i + 1 < len(tokens) and tokens[i + 1].type == "inline":
-                current_section_key = (
-                    f"{'#' * current_section_level} {tokens[i + 1].content.strip()}"
-                )
+                current_section_key = f"{'#' * current_section_level} {tokens[i + 1].content.strip()}"
             else:
                 current_section_key = f"{'#' * current_section_level} Untitled Section"
             # Skip the heading_open token itself
@@ -214,9 +199,7 @@ def parse_markdown_sections(text):
 
     # Add the last section or remaining buffer content
     if current_section_key:
-        section_data.append(
-            (current_section_level, current_section_key, current_section_content_tokens)
-        )
+        section_data.append((current_section_level, current_section_key, current_section_content_tokens))
     elif content_buffer_tokens:
         section_data.append((0, "_leading_content", content_buffer_tokens))
 
@@ -228,9 +211,7 @@ def parse_markdown_sections(text):
 
     # Process leading content first (if any)
     if "_leading_content" in section_data_lookup:
-        temp_sections_tokens["_leading_content"] = section_data_lookup[
-            "_leading_content"
-        ][1]
+        temp_sections_tokens["_leading_content"] = section_data_lookup["_leading_content"][1]
 
     # Process actual sections
     processed_keys = {"_leading_content"}  # Keep track of processed keys
@@ -253,9 +234,7 @@ def parse_markdown_sections(text):
             active_hierarchy[-1][2].extend(content_tokens)
 
         # Push current section onto the hierarchy stack with its *direct* content
-        active_hierarchy.append(
-            [level, key, list(content_tokens)]
-        )  # Use list() for mutable copy
+        active_hierarchy.append([level, key, list(content_tokens)])  # Use list() for mutable copy
 
     # Process any remaining sections left in the hierarchy stack
     while active_hierarchy:
@@ -279,14 +258,8 @@ def parse_markdown_sections(text):
 
     # Ensure no list values accidentally assigned to section keys
     for key, value in sections.items():
-        if (
-            isinstance(value, list)
-            and not key.endswith("_paragraphs")
-            and key != "paragraphs"
-        ):
-            logging.warning(
-                f"Section key '{key}' has list value: {value}"
-            )  # Debug print
+        if isinstance(value, list) and not key.endswith("_paragraphs") and key != "paragraphs":
+            logging.warning(f"Section key '{key}' has list value: {value}")  # Debug print
             # Decide how to handle this - maybe convert list to string?
             # For now, let's try joining if it's a list of strings
             if all(isinstance(item, str) for item in value):
@@ -357,9 +330,7 @@ def strip_markdown_markup(text: str) -> str:
                     content_parts.append("\n")
                 else:
                     content_parts.append("\n\n")
-            elif (
-                not content_parts
-            ):  # Handle case of empty paragraph if it results in tokens
+            elif not content_parts:  # Handle case of empty paragraph if it results in tokens
                 content_parts.append("\n\n")
         elif token.type == "list_item_close":
             current_text_so_far = "".join(content_parts)
@@ -519,9 +490,7 @@ def readability_score(text: str, level: str = "full") -> dict:
             result["paragraphs"].append(
                 {
                     "paragraph_number": i + 1,
-                    "text": paragraph[:50] + "..."
-                    if len(paragraph) > 50
-                    else paragraph,
+                    "text": paragraph[:50] + "..." if len(paragraph) > 50 else paragraph,
                     "scores": get_scores(paragraph),
                 }
             )
@@ -529,9 +498,7 @@ def readability_score(text: str, level: str = "full") -> dict:
         return result
 
     else:
-        return {
-            "error": f"Invalid level: {level}. Choose from 'full', 'section', or 'paragraph'."
-        }
+        return {"error": f"Invalid level: {level}. Choose from 'full', 'section', or 'paragraph'."}
 
 
 @mcp.tool()
@@ -555,7 +522,7 @@ def reading_time(text: str, level: str = "full") -> dict:
               - If `level` is invalid: `{"error": str}`
     """
 
-    ms_per_character = 28 # default is ~14
+    ms_per_character = 28  # default is ~14
 
     def get_reading_time(text_segment):
         if not text_segment:
@@ -601,9 +568,7 @@ def reading_time(text: str, level: str = "full") -> dict:
             result["paragraphs"].append(
                 {
                     "paragraph_number": i + 1,
-                    "text": paragraph[:50] + "..."
-                    if len(paragraph) > 50
-                    else paragraph,
+                    "text": paragraph[:50] + "..." if len(paragraph) > 50 else paragraph,
                     "reading_time_minutes": get_reading_time(paragraph),
                 }
             )
@@ -611,9 +576,7 @@ def reading_time(text: str, level: str = "full") -> dict:
         return result
 
     else:
-        return {
-            "error": f"Invalid level: {level}. Choose from 'full', 'section', or 'paragraph'."
-        }
+        return {"error": f"Invalid level: {level}. Choose from 'full', 'section', or 'paragraph'."}
 
 
 @mcp.tool()
@@ -632,9 +595,7 @@ def keyword_density(text: str, keyword: str) -> float:
         float: The density of the keyword as a percentage. Returns 0 if the text is empty.
     """
     processed_text = preprocess_text(text)
-    processed_keyword = (
-        preprocess_text(keyword)[0] if preprocess_text(keyword) else keyword.lower()
-    )
+    processed_keyword = preprocess_text(keyword)[0] if preprocess_text(keyword) else keyword.lower()
 
     keyword_count = processed_text.count(processed_keyword)
     return (keyword_count / len(processed_text)) * 100 if processed_text else 0
@@ -700,10 +661,7 @@ def keyword_context(text: str, keyword: str) -> list:
     # Extract sentences containing the keyword or its lemmatized form
     contexts = []
     for sent in doc.sents:
-        if any(
-            token.text.lower() == keyword.lower() or token.lemma_ == keyword_lemma
-            for token in sent
-        ):
+        if any(token.text.lower() == keyword.lower() or token.lemma_ == keyword_lemma for token in sent):
             contexts.append(sent.text)
 
     return contexts
@@ -731,8 +689,7 @@ def passive_voice_detection(text: str) -> list:
         # This is a simplified approach and might miss some complex passive constructions
         for token in sent:
             if token.dep_ == "auxpass" or (
-                token.pos_ == "AUX"
-                and any(child.tag_ == "VBN" for child in token.children)
+                token.pos_ == "AUX" and any(child.tag_ == "VBN" for child in token.children)
             ):
                 passive_sentences.append(sent.text)
                 break
@@ -742,4 +699,4 @@ def passive_voice_detection(text: str) -> list:
 
 if __name__ == "__main__":
     logging.info("Starting MCP server...")
-    mcp.run() 
+    mcp.run()

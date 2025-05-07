@@ -1,8 +1,8 @@
 from server.server import (
+    parse_markdown_sections,
     readability_score,
     reading_time,
     split_paragraphs,
-    parse_markdown_sections,
 )
 
 # --- Test Helper Functions ---
@@ -121,19 +121,10 @@ def test_parse_markdown_sections():
     assert result["full_text"] == EXPECTED_SECTIONS["full_text"]
 
     # Check paragraphs within sections
-    assert (
-        result["# Section 1_paragraphs"] == EXPECTED_SECTIONS["# Section 1_paragraphs"]
-    )
-    assert (
-        result["## Subsection 1.1_paragraphs"]
-        == EXPECTED_SECTIONS["## Subsection 1.1_paragraphs"]
-    )
-    assert (
-        result["# Section 2_paragraphs"] == EXPECTED_SECTIONS["# Section 2_paragraphs"]
-    )
-    assert (
-        result["paragraphs"] == EXPECTED_SECTIONS["paragraphs"]
-    )  # paragraphs for full text
+    assert result["# Section 1_paragraphs"] == EXPECTED_SECTIONS["# Section 1_paragraphs"]
+    assert result["## Subsection 1.1_paragraphs"] == EXPECTED_SECTIONS["## Subsection 1.1_paragraphs"]
+    assert result["# Section 2_paragraphs"] == EXPECTED_SECTIONS["# Section 2_paragraphs"]
+    assert result["paragraphs"] == EXPECTED_SECTIONS["paragraphs"]  # paragraphs for full text
 
 
 def test_parse_markdown_no_headings():
@@ -195,15 +186,9 @@ def test_readability_score_paragraphs():
     assert "paragraph_number" in para0_info
     assert para0_info["text"] == EXPECTED_PARAGRAPHS_FULL[0]
     assert "scores" in para0_info
-    assert para0_info["scores"]["flesch"] is None, (
-        f"Paragraph 0 ({para0_info['text']}) Flesch score should be None"
-    )
-    assert para0_info["scores"]["kincaid"] is None, (
-        f"Paragraph 0 ({para0_info['text']}) Kincaid score should be None"
-    )
-    assert para0_info["scores"]["fog"] is None, (
-        f"Paragraph 0 ({para0_info['text']}) Fog score should be None"
-    )
+    assert para0_info["scores"]["flesch"] is None, f"Paragraph 0 ({para0_info['text']}) Flesch score should be None"
+    assert para0_info["scores"]["kincaid"] is None, f"Paragraph 0 ({para0_info['text']}) Kincaid score should be None"
+    assert para0_info["scores"]["fog"] is None, f"Paragraph 0 ({para0_info['text']}) Fog score should be None"
 
     # Paragraph 1: "This is the first paragraph..." (content) - scores should be numbers
     para1_info = scores["paragraphs"][1]
@@ -247,9 +232,9 @@ def test_readability_score_long_paragraphs():
     scores_data = readability_score(text_input, level="paragraph")
     assert isinstance(scores_data, dict), "Scores data should be a dictionary."
     assert "full_text" in scores_data, "Full text scores missing."
-    assert "paragraphs" in scores_data and isinstance(
-        scores_data["paragraphs"], list
-    ), "Paragraphs data missing or not a list."
+    assert "paragraphs" in scores_data and isinstance(scores_data["paragraphs"], list), (
+        "Paragraphs data missing or not a list."
+    )
 
     # We still need to know how many paragraphs to expect based on a reliable split
     # to ensure readability_score processes all of them.
@@ -259,18 +244,12 @@ def test_readability_score_long_paragraphs():
     )
 
     for i, para_info in enumerate(scores_data["paragraphs"]):
-        assert "paragraph_number" in para_info, (
-            f"Paragraph {i + 1} missing 'paragraph_number'."
-        )
-        assert para_info["paragraph_number"] == i + 1, (
-            f"Paragraph {i + 1} has incorrect 'paragraph_number'."
-        )
+        assert "paragraph_number" in para_info, f"Paragraph {i + 1} missing 'paragraph_number'."
+        assert para_info["paragraph_number"] == i + 1, f"Paragraph {i + 1} has incorrect 'paragraph_number'."
         assert "text" in para_info, f"Paragraph {i + 1} missing 'text'."
 
         current_paragraph_text = para_info["text"]
-        assert isinstance(current_paragraph_text, str), (
-            f"Paragraph {i + 1} text is not a string."
-        )
+        assert isinstance(current_paragraph_text, str), f"Paragraph {i + 1} text is not a string."
         assert len(current_paragraph_text) > 0, f"Paragraph {i + 1} text is empty."
 
         # Check that the text corresponds to what we expect from our MARKDOWN_LONG_PARAGRAPHS_EXAMPLE

@@ -1,17 +1,25 @@
-import sys
 import os
-import io # For capturing stdout/stderr
-# import threading # No longer directly using threading.Event for server stop
-from PySide6.QtWidgets import QApplication, QMainWindow, QTextEdit, QVBoxLayout, QWidget, QPushButton, QHBoxLayout
-from PySide6.QtCore import QObject, QThread, Signal, Slot
+import sys
 
 # Attempt to import uvicorn. If not found, this will raise an ImportError later.
 import uvicorn
+from PySide6.QtCore import QObject, QThread, Signal, Slot
+
+# import threading # No longer directly using threading.Event for server stop
+from PySide6.QtWidgets import (
+    QApplication,
+    QHBoxLayout,
+    QMainWindow,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 # Add the parent directory of 'app' to sys.path to allow importing 'server'
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(APP_DIR)
-SERVER_DIR = os.path.join(PROJECT_ROOT, 'server')
+SERVER_DIR = os.path.join(PROJECT_ROOT, "server")
 
 # Prepend SERVER_DIR first, then PROJECT_ROOT to prioritize modules within server/
 # when just 'import server' is used.
@@ -34,6 +42,7 @@ class LogStreamRelay(QObject):
     Attributes:
         messageWritten (Signal): Qt signal that emits a string (a line of log).
     """
+
     messageWritten = Signal(str)
 
     def __init__(self, parent=None):
@@ -56,13 +65,13 @@ class LogStreamRelay(QObject):
         try:
             # Split text into lines, keeping the newline characters
             lines = text.splitlines(keepends=True)
-            
+
             for line in lines:
                 self._buffer += line
-                if line.endswith('\n'):
+                if line.endswith("\n"):
                     # We have a complete line, emit it without the newline
                     try:
-                        self.messageWritten.emit(self._buffer.rstrip('\n'))
+                        self.messageWritten.emit(self._buffer.rstrip("\n"))
                     except RuntimeError as e:
                         # If signal emission fails, write to original stderr
                         sys.__stderr__.write(f"LogStreamRelay Error: Cannot emit signal - {e}\nMessage: {self._buffer}")
@@ -92,6 +101,7 @@ class LogStreamRelay(QObject):
         """
         return False
 
+
 class ServerWorker(QObject):
     """
     Manages the execution of the Uvicorn server in a separate QThread.
@@ -108,6 +118,7 @@ class ServerWorker(QObject):
         _stdout_relay (LogStreamRelay): Relay for stdout messages.
         _stderr_relay (LogStreamRelay): Relay for stderr messages.
     """
+
     finished = Signal()
 
     def __init__(self, stdout_relay: LogStreamRelay, stderr_relay: LogStreamRelay, parent=None):
@@ -149,9 +160,10 @@ class ServerWorker(QObject):
             try:
                 # Import and configure server
                 from server import mcp as server_module
+
                 mcp_instance = server_module
-                
-                if not hasattr(mcp_instance, 'sse_app'):
+
+                if not hasattr(mcp_instance, "sse_app"):
                     error_msg = "MCP instance does not have 'sse_app' method required for ASGI."
                     self._stderr_relay.write(f"ServerWorker Error: {error_msg}\n")
                     raise AttributeError(error_msg)
@@ -174,7 +186,9 @@ class ServerWorker(QObject):
                 self._stderr_relay.write(f"ServerWorker Error: Invalid server configuration - {str(e)}\n")
                 raise
             except Exception as e:
-                self._stderr_relay.write(f"ServerWorker Error: Server execution failed - {type(e).__name__}: {str(e)}\n")
+                self._stderr_relay.write(
+                    f"ServerWorker Error: Server execution failed - {type(e).__name__}: {str(e)}\n"
+                )
                 raise
 
         except Exception as e:
@@ -184,9 +198,9 @@ class ServerWorker(QObject):
         finally:
             # Clean up and restore streams
             try:
-                if hasattr(sys.stdout, 'flush'):
+                if hasattr(sys.stdout, "flush"):
                     sys.stdout.flush()
-                if hasattr(sys.stderr, 'flush'):
+                if hasattr(sys.stderr, "flush"):
                     sys.stderr.flush()
             except Exception as e:
                 sys.__stderr__.write(f"ServerWorker Error: Failed to flush streams - {str(e)}\n")
@@ -294,7 +308,7 @@ class MainWindow(QMainWindow):
         5. Starts the thread
         """
         self.append_log("MainWindow: start_server() called.")
-        
+
         if self._server_thread and self._server_thread.isRunning():
             self.append_log("MainWindow: Server thread already running.")
             return
@@ -302,18 +316,15 @@ class MainWindow(QMainWindow):
         # Create and configure the thread
         self._server_thread = QThread()
         self._server_thread.setObjectName("ServerThread")
-        
+
         # Create the worker with our LogStreamRelay instances
-        self._server_worker = ServerWorker(
-            stdout_relay=self._stdout_relay,
-            stderr_relay=self._stderr_relay
-        )
+        self._server_worker = ServerWorker(stdout_relay=self._stdout_relay, stderr_relay=self._stderr_relay)
 
         # Move worker to thread and set up connections
         self._server_worker.moveToThread(self._server_thread)
         self._server_thread.started.connect(self._server_worker.run_server)
         self._server_worker.finished.connect(self.on_server_worker_finished)
-        
+
         # Set up cleanup connections
         self._server_worker.finished.connect(self._server_thread.quit)
         self._server_thread.finished.connect(self._server_thread.deleteLater)
@@ -363,22 +374,32 @@ class MainWindow(QMainWindow):
         # references to them to prevent using dangling pointers.
 
         thread_was_running = self._server_thread is not None and self._server_thread.isRunning()
-        current_thread_ref = self._server_thread # Store ref for logging and potential ops
+        current_thread_ref = self._server_thread  # Store ref for logging and potential ops
 
-        self.append_log(f"MainWindow: Nullifying references to ServerWorker (was {type(self._server_worker)}) and QThread (was {type(self._server_thread)}).")
+        self.append_log(
+            f"MainWindow: Nullifying references to ServerWorker (was {type(self._server_worker)}) and QThread (was {type(self._server_thread)})."
+        )
         self._server_worker = None
         self._server_thread = None
 
         if current_thread_ref:
             if current_thread_ref.isRunning():
-                self.append_log(f"MainWindow: QThread {current_thread_ref.objectName() or 'Unnamed'} is still marked as running after worker finished. Requesting quit().")
-                current_thread_ref.quit() # Ask the QThread's event loop to stop
-                if not current_thread_ref.wait(2000): # Wait up to 2 seconds
-                    self.append_log(f"MainWindow: Warning: QThread {current_thread_ref.objectName() or 'Unnamed'} did not finish cleanly after quit() and wait(). It might be forcefully terminated or still cleaning up.")
+                self.append_log(
+                    f"MainWindow: QThread {current_thread_ref.objectName() or 'Unnamed'} is still marked as running after worker finished. Requesting quit()."
+                )
+                current_thread_ref.quit()  # Ask the QThread's event loop to stop
+                if not current_thread_ref.wait(2000):  # Wait up to 2 seconds
+                    self.append_log(
+                        f"MainWindow: Warning: QThread {current_thread_ref.objectName() or 'Unnamed'} did not finish cleanly after quit() and wait(). It might be forcefully terminated or still cleaning up."
+                    )
                 else:
-                    self.append_log(f"MainWindow: QThread {current_thread_ref.objectName() or 'Unnamed'} finished after quit() and wait().")
+                    self.append_log(
+                        f"MainWindow: QThread {current_thread_ref.objectName() or 'Unnamed'} finished after quit() and wait()."
+                    )
             else:
-                self.append_log(f"MainWindow: QThread {current_thread_ref.objectName() or 'Unnamed'} was already not running when worker finished.")
+                self.append_log(
+                    f"MainWindow: QThread {current_thread_ref.objectName() or 'Unnamed'} was already not running when worker finished."
+                )
         else:
             self.append_log("MainWindow: _server_thread was already None when worker finished.")
 
@@ -388,7 +409,7 @@ class MainWindow(QMainWindow):
             self.start_server()
         else:
             self.append_log("MainWindow: Server has stopped (no restart requested).")
-            self.restart_button.setEnabled(True) # Re-enable button as server is now stopped
+            self.restart_button.setEnabled(True)  # Re-enable button as server is now stopped
 
     def closeEvent(self, event):
         """
@@ -399,7 +420,7 @@ class MainWindow(QMainWindow):
             event (QCloseEvent): The close event.
         """
         self.append_log("MainWindow: closeEvent() triggered. Application is closing.")
-        self._restart_requested = False # Ensure no restart happens during shutdown
+        self._restart_requested = False  # Ensure no restart happens during shutdown
 
         if self._server_thread and self._server_thread.isRunning():
             self.append_log("MainWindow: Server thread is running. Attempting to stop it for application shutdown...")
@@ -412,17 +433,23 @@ class MainWindow(QMainWindow):
             # Wait for the thread to finish. The on_server_worker_finished logic will handle
             # some cleanup, but we need to ensure the thread actually stops here.
             current_thread_for_shutdown = self._server_thread
-            self.append_log(f"MainWindow: Waiting up to 5 seconds for server thread ({current_thread_for_shutdown.objectName() or 'Unnamed'}) to finish...")
+            self.append_log(
+                f"MainWindow: Waiting up to 5 seconds for server thread ({current_thread_for_shutdown.objectName() or 'Unnamed'}) to finish..."
+            )
             if not current_thread_for_shutdown.wait(5000):
-                self.append_log(f"MainWindow: Warning: Server thread ({current_thread_for_shutdown.objectName() or 'Unnamed'}) did not stop cleanly within 5 seconds during closeEvent. It might be forcefully terminated.")
+                self.append_log(
+                    f"MainWindow: Warning: Server thread ({current_thread_for_shutdown.objectName() or 'Unnamed'}) did not stop cleanly within 5 seconds during closeEvent. It might be forcefully terminated."
+                )
             else:
-                self.append_log(f"MainWindow: Server thread ({current_thread_for_shutdown.objectName() or 'Unnamed'}) stopped successfully during closeEvent.")
+                self.append_log(
+                    f"MainWindow: Server thread ({current_thread_for_shutdown.objectName() or 'Unnamed'}) stopped successfully during closeEvent."
+                )
         else:
             self.append_log("MainWindow: Server thread was not running or already stopped at closeEvent.")
 
         self.append_log("MainWindow: Proceeding with super().closeEvent().")
         super().closeEvent(event)
-        self.append_log("MainWindow: Application closed.") # This log might not appear if event loop is gone
+        self.append_log("MainWindow: Application closed.")  # This log might not appear if event loop is gone
 
 
 if __name__ == "__main__":
