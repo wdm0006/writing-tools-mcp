@@ -1,4 +1,4 @@
-from server import (
+from server.server import (
     preprocess_text,
     keyword_density,
     keyword_frequency,

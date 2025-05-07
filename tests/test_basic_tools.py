@@ -1,4 +1,4 @@
-from server import list_tools, character_count, word_count
+from server.server import list_tools, character_count, word_count
 
 
 def test_list_tools():

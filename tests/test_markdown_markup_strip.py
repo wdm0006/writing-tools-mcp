@@ -1,6 +1,4 @@
-from server import (
-    strip_markdown_markup,
-)  # Assuming server.py is in the same directory or PYTHONPATH
+from server.server import strip_markdown_markup
 
 
 def test_plain_text():

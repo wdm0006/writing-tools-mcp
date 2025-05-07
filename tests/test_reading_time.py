@@ -1,4 +1,4 @@
-from server import reading_time
+from server.server import reading_time
 import textstat as ts
 
 def test_reading_time_is_unusually_low_for_long_text():

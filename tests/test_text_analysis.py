@@ -1,4 +1,4 @@
-from server import (
+from server.server import (
     readability_score,
     reading_time,
     split_paragraphs,

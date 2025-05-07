@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "writing-tools-mcp"
+version = "0.1.0"
+description = "MCP server with a PySide GUI for text analysis tools."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+   { name="Will McGinnis", email="will@mcginniscommawill.com" },
+]
+
+dependencies = [
+    "mcp[cli]",
+    "pyspellchecker",
+    "textstat",
+    "spacy",
+    "markdown-it-py",
+    "Pyside6"
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pytest",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/wdm0006/writing-tools-mcp" 
+"Bug Tracker" = "https://github.com/wdm0006/writing-tools-mcp/issues" 
+
+# Example for ruff (linter) configuration
+[tool.ruff]
+line-length = 88
+select = ["E", "W", "F", "I", "C", "B"] 
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "server"]
