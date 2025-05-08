@@ -1,13 +1,19 @@
+import asyncio
+import logging
 import os
 import sys
+import threading
 
 # Attempt to import uvicorn. If not found, this will raise an ImportError later.
 import uvicorn
+from mcp import ClientSession
+from mcp.client.sse import sse_client
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
 # import threading # No longer directly using threading.Event for server stop
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QHBoxLayout,
     QMainWindow,
     QPushButton,
@@ -27,6 +33,16 @@ if SERVER_DIR not in sys.path:
     sys.path.insert(0, SERVER_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
+
+
+class QtLogHandler(logging.Handler):
+    def __init__(self, append_log_func):
+        super().__init__()
+        self.append_log_func = append_log_func
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.append_log_func(msg)
 
 
 class LogStreamRelay(QObject):
@@ -73,12 +89,11 @@ class LogStreamRelay(QObject):
                     try:
                         self.messageWritten.emit(self._buffer.rstrip("\n"))
                     except RuntimeError as e:
-                        # If signal emission fails, write to original stderr
-                        sys.__stderr__.write(f"LogStreamRelay Error: Cannot emit signal - {e}\nMessage: {self._buffer}")
+                        logging.error(f"LogStreamRelay Error: Cannot emit signal - {e}\nMessage: {self._buffer}")
                     self._buffer = ""
         except Exception as e:
             # If any other error occurs, write to original stderr
-            sys.__stderr__.write(f"LogStreamRelay Error: {e}\nMessage: {text}")
+            logging.error(f"LogStreamRelay Error: {e}\nMessage: {text}")
 
     def flush(self) -> None:
         """
@@ -88,8 +103,7 @@ class LogStreamRelay(QObject):
             try:
                 self.messageWritten.emit(self._buffer)
             except RuntimeError as e:
-                # If signal emission fails, write to original stderr
-                sys.__stderr__.write(f"LogStreamRelay Error: Cannot emit signal - {e}\nMessage: {self._buffer}")
+                logging.error(f"LogStreamRelay Error: Cannot emit signal - {e}\nMessage: {self._buffer}")
             self._buffer = ""
 
     def isatty(self) -> bool:
@@ -186,14 +200,16 @@ class ServerWorker(QObject):
                 self._stderr_relay.write(f"ServerWorker Error: Invalid server configuration - {str(e)}\n")
                 raise
             except Exception as e:
+                import traceback
+                tb_str = traceback.format_exc()
                 self._stderr_relay.write(
-                    f"ServerWorker Error: Server execution failed - {type(e).__name__}: {str(e)}\n"
+                    f"ServerWorker Error: Server execution failed - {type(e).__name__}: {str(e)}\nFull traceback:\n{tb_str}\n"
                 )
                 raise
 
         except Exception as e:
             # Handle any errors that occurred during stream redirection or server execution
-            sys.__stderr__.write(f"ServerWorker Critical Error: {type(e).__name__}: {str(e)}\n")
+            logging.critical(f"ServerWorker Critical Error: {type(e).__name__}: {str(e)}\n")
             raise
         finally:
             # Clean up and restore streams
@@ -203,7 +219,7 @@ class ServerWorker(QObject):
                 if hasattr(sys.stderr, "flush"):
                     sys.stderr.flush()
             except Exception as e:
-                sys.__stderr__.write(f"ServerWorker Error: Failed to flush streams - {str(e)}\n")
+                logging.error(f"ServerWorker Error: Failed to flush streams - {str(e)}\n")
 
             # Always restore original streams
             sys.stdout = original_stdout
@@ -276,6 +292,15 @@ class MainWindow(QMainWindow):
         self.restart_button.setEnabled(False)  # Initially disabled
         button_layout.addWidget(self.restart_button)
 
+        self.test_button = QPushButton("Test MCP")
+        self.test_button.clicked.connect(self.test_mcp_server)
+        button_layout.addWidget(self.test_button)
+
+        # Add Connect to Apps button
+        self.connect_apps_button = QPushButton("Connect to Apps")
+        self.connect_apps_button.clicked.connect(self.show_connect_apps_dialog)
+        button_layout.addWidget(self.connect_apps_button)
+
         # Create LogStreamRelay instances for stdout/stderr
         self._stdout_relay = LogStreamRelay(self)
         self._stderr_relay = LogStreamRelay(self)
@@ -284,7 +309,17 @@ class MainWindow(QMainWindow):
         self._stdout_relay.messageWritten.connect(self.append_log)
         self._stderr_relay.messageWritten.connect(self.append_log)
 
-        self.append_log("MainWindow: Initialized and ready.")
+        # Set up logging
+        LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+        logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+        self.logger = logging.getLogger(__name__)
+        handler = QtLogHandler(self.append_log)
+        handler.setFormatter(logging.Formatter(LOG_FORMAT))
+        logging.getLogger().addHandler(handler)
+        # Remove duplicate logs if root logger already has handlers
+        if len(logging.getLogger().handlers) > 1:
+            logging.getLogger().handlers = [handler]
+        self.logger.info("MainWindow: Initialized and ready.")
 
     @Slot(str)
     def append_log(self, message: str):
@@ -307,10 +342,10 @@ class MainWindow(QMainWindow):
         4. Connects necessary signals
         5. Starts the thread
         """
-        self.append_log("MainWindow: start_server() called.")
+        self.logger.info("MainWindow: start_server() called.")
 
         if self._server_thread and self._server_thread.isRunning():
-            self.append_log("MainWindow: Server thread already running.")
+            self.logger.info("MainWindow: Server thread already running.")
             return
 
         # Create and configure the thread
@@ -331,7 +366,7 @@ class MainWindow(QMainWindow):
         self._server_worker.finished.connect(self._server_worker.deleteLater)
 
         # Start the thread
-        self.append_log("MainWindow: Starting server thread...")
+        self.logger.info("MainWindow: Starting server thread...")
         self._server_thread.start()
 
         # Update UI
@@ -348,16 +383,80 @@ class MainWindow(QMainWindow):
         3. Waits for the finished signal
         4. start_server will be called by the finished handler
         """
-        self.append_log("MainWindow: restart_server() called.")
+        self.logger.info("MainWindow: restart_server() called.")
         if not self._server_worker or not self._server_thread or not self._server_thread.isRunning():
-            self.append_log("MainWindow: No running server to restart. Starting fresh...")
+            self.logger.info("MainWindow: No running server to restart. Starting fresh...")
             self.start_server()
             return
 
-        self.append_log("MainWindow: Setting restart flag and stopping current server...")
+        self.logger.info("MainWindow: Setting restart flag and stopping current server...")
         self._restart_requested = True
         self.restart_button.setEnabled(False)  # Prevent multiple restarts
         self._server_worker.stop_server()
+
+    def test_mcp_server(self):
+        """
+        Tests the MCP server by connecting via the MCP SDK (SSE) and listing tools.
+        """
+        self.logger.info("MainWindow: Testing MCP server using MCP SDK (SSE)...")
+
+        def run_test():
+            async def async_test():
+                try:
+                    # Connect to the SSE server
+                    async with sse_client("http://127.0.0.1:8001/sse") as (read, write):
+                        async with ClientSession(read, write) as session:
+                            await session.initialize()
+                            tools = await session.list_tools()
+                            self.logger.info(f"MCP SDK Test Success: {tools}")
+                except Exception as e:
+                    self.logger.error(f"MCP SDK Test Error: {type(e).__name__}: {e}")
+
+            asyncio.run(async_test())
+
+        threading.Thread(target=run_test, daemon=True).start()
+
+    def show_connect_apps_dialog(self):
+        """
+        Show a modal dialog with documentation on connecting external apps to this MCP.
+        """
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Connect to Apps")
+        dialog.setModal(True)
+        layout = QVBoxLayout(dialog)
+        from PySide6.QtWidgets import QPushButton, QTextEdit
+
+        doc_text = (
+            "<b>How to Connect External Apps to MCP</b><br><br>"
+            "<b>Cursor:</b><br>"
+            "1. Open Cursor settings.<br>"
+            "2. Go to the 'AI Providers' section.<br>"
+            "3. Add a new provider with the following endpoint:<br>"
+            "<code>http://127.0.0.1:8001</code><br>"
+            "4. Set the API type to 'FastMCP' or 'OpenAI-compatible' if available.<br>"
+            "5. Save and test the connection.<br><br>"
+            "<b>Claude.ai (if supported):</b><br>"
+            "1. Go to Claude's integrations or custom API section.<br>"
+            "2. Enter the endpoint: <code>http://127.0.0.1:8001</code><br>"
+            "3. Use your MCP API key if required (see your MCP settings).<br>"
+            "4. Save and test the connection.<br><br>"
+            "<b>General Notes:</b><br>"
+            "- Ensure this MCP server is running and accessible from the app.<br>"
+            "- For more details, see the documentation or ask in the support channel."
+        )
+        text = QTextEdit()
+        text.setReadOnly(True)
+        text.setHtml(doc_text)
+        text.setStyleSheet(
+            "background-color: #101010; color: #00FF41; font-family: 'Fira Mono', monospace; border: none;"
+        )
+        layout.addWidget(text)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        dialog.setStyleSheet("background-color: #181A1B; border: 2px solid #00FF41;")
+        dialog.setFixedSize(500, 400)
+        dialog.exec()
 
     @Slot()
     def on_server_worker_finished(self):
@@ -367,16 +466,15 @@ class MainWindow(QMainWindow):
         It handles cleanup of the thread and worker references and, if a restart
         was requested, initiates it.
         """
-        self.append_log("MainWindow: on_server_worker_finished() slot triggered.")
+        self.logger.info("MainWindow: on_server_worker_finished() slot triggered.")
 
         # The ServerWorker and QThread instances are scheduled for deletion via deleteLater
         # connected to their respective 'finished' signals. We should nullify MainWindow's
         # references to them to prevent using dangling pointers.
 
-        thread_was_running = self._server_thread is not None and self._server_thread.isRunning()
         current_thread_ref = self._server_thread  # Store ref for logging and potential ops
 
-        self.append_log(
+        self.logger.debug(
             f"MainWindow: Nullifying references to ServerWorker (was {type(self._server_worker)}) and QThread (was {type(self._server_thread)})."
         )
         self._server_worker = None
@@ -384,31 +482,31 @@ class MainWindow(QMainWindow):
 
         if current_thread_ref:
             if current_thread_ref.isRunning():
-                self.append_log(
+                self.logger.debug(
                     f"MainWindow: QThread {current_thread_ref.objectName() or 'Unnamed'} is still marked as running after worker finished. Requesting quit()."
                 )
                 current_thread_ref.quit()  # Ask the QThread's event loop to stop
                 if not current_thread_ref.wait(2000):  # Wait up to 2 seconds
-                    self.append_log(
+                    self.logger.warning(
                         f"MainWindow: Warning: QThread {current_thread_ref.objectName() or 'Unnamed'} did not finish cleanly after quit() and wait(). It might be forcefully terminated or still cleaning up."
                     )
                 else:
-                    self.append_log(
+                    self.logger.debug(
                         f"MainWindow: QThread {current_thread_ref.objectName() or 'Unnamed'} finished after quit() and wait()."
                     )
             else:
-                self.append_log(
+                self.logger.debug(
                     f"MainWindow: QThread {current_thread_ref.objectName() or 'Unnamed'} was already not running when worker finished."
                 )
         else:
-            self.append_log("MainWindow: _server_thread was already None when worker finished.")
+            self.logger.debug("MainWindow: _server_thread was already None when worker finished.")
 
         if self._restart_requested:
-            self.append_log("MainWindow: Server stop confirmed by worker finishing. Proceeding with restart...")
+            self.logger.info("MainWindow: Server stop confirmed by worker finishing. Proceeding with restart...")
             self._restart_requested = False
             self.start_server()
         else:
-            self.append_log("MainWindow: Server has stopped (no restart requested).")
+            self.logger.info("MainWindow: Server has stopped (no restart requested).")
             self.restart_button.setEnabled(True)  # Re-enable button as server is now stopped
 
     def closeEvent(self, event):
@@ -419,42 +517,83 @@ class MainWindow(QMainWindow):
         Args:
             event (QCloseEvent): The close event.
         """
-        self.append_log("MainWindow: closeEvent() triggered. Application is closing.")
+        # Show a modal dialog indicating closing
+        closing_dialog = QDialog(self)
+        closing_dialog.setWindowTitle("Closing...")
+        closing_dialog.setModal(True)
+        layout = QVBoxLayout(closing_dialog)
+        from PySide6.QtWidgets import QLabel
+
+        label = QLabel("Closing...")
+        label.setStyleSheet("color: #00FF41; font-size: 18px; padding: 20px;")
+        layout.addWidget(label)
+        closing_dialog.setStyleSheet("background-color: #181A1B; border: 2px solid #00FF41;")
+        closing_dialog.setFixedSize(300, 100)
+        closing_dialog.show()
+        QApplication.processEvents()  # Ensure dialog is shown immediately
+
+        self.logger.info("MainWindow: closeEvent() triggered. Application is closing.")
         self._restart_requested = False  # Ensure no restart happens during shutdown
 
         if self._server_thread and self._server_thread.isRunning():
-            self.append_log("MainWindow: Server thread is running. Attempting to stop it for application shutdown...")
+            self.logger.info("MainWindow: Server thread is running. Attempting to stop it for application shutdown...")
             if self._server_worker:
-                self.append_log("MainWindow: Calling ServerWorker.stop_server() for shutdown.")
+                self.logger.info("MainWindow: Calling ServerWorker.stop_server() for shutdown.")
                 self._server_worker.stop_server()
             else:
-                self.append_log("MainWindow: Server thread running, but no worker to signal stop. This is unusual.")
+                self.logger.warning("MainWindow: Server thread running, but no worker to signal stop. This is unusual.")
 
             # Wait for the thread to finish. The on_server_worker_finished logic will handle
             # some cleanup, but we need to ensure the thread actually stops here.
             current_thread_for_shutdown = self._server_thread
-            self.append_log(
+            self.logger.info(
                 f"MainWindow: Waiting up to 5 seconds for server thread ({current_thread_for_shutdown.objectName() or 'Unnamed'}) to finish..."
             )
             if not current_thread_for_shutdown.wait(5000):
-                self.append_log(
+                self.logger.warning(
                     f"MainWindow: Warning: Server thread ({current_thread_for_shutdown.objectName() or 'Unnamed'}) did not stop cleanly within 5 seconds during closeEvent. It might be forcefully terminated."
                 )
             else:
-                self.append_log(
+                self.logger.info(
                     f"MainWindow: Server thread ({current_thread_for_shutdown.objectName() or 'Unnamed'}) stopped successfully during closeEvent."
                 )
         else:
-            self.append_log("MainWindow: Server thread was not running or already stopped at closeEvent.")
+            self.logger.info("MainWindow: Server thread was not running or already stopped at closeEvent.")
 
-        self.append_log("MainWindow: Proceeding with super().closeEvent().")
+        self.logger.info("MainWindow: Proceeding with super().closeEvent().")
+        closing_dialog.close()  # Hide the dialog just before closing
         super().closeEvent(event)
-        self.append_log("MainWindow: Application closed.")  # This log might not appear if event loop is gone
+        self.logger.info("MainWindow: Application closed.")  # This log might not appear if event loop is gone
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    # Apply global dark Matrix theme with monospaced font
+    app.setStyleSheet("""
+        QWidget {
+            background-color: #181A1B;
+            color: #00FF41;
+            font-family: "Fira Mono", "Consolas", "Courier New", monospace;
+        }
+        QPushButton {
+            background-color: #222;
+            color: #00FF41;
+            border: 1px solid #00FF41;
+            border-radius: 4px;
+            padding: 6px 12px;
+        }
+        QPushButton:hover {
+            background-color: #1a2b1a;
+        }
+        QTextEdit, QLineEdit {
+            background-color: #101010;
+            color: #00FF41;
+            font-family: "Fira Mono", "Consolas", "Courier New", monospace;
+            border: 1px solid #00FF41;
+        }
+    """)
     window = MainWindow()
+    window.setWindowTitle("mcp@mcw")
     window.show()
     exit_code = app.exec()
     sys.exit(exit_code)

@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "todolist": {
+            "command": "uv",
+                    "args": [
+                        "--directory",
+                        "/Users/wmcginnis/Documents/GitHub/todolist-mcp",
+                        "run",
+                        "todo_mcp.py",
+                        "--project-dir",
+                        "/Users/wmcginnis/Documents/GitHub/writing-tools-mcp"
+                    ]
+            }
+        }
+}

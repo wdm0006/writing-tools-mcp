@@ -127,7 +127,7 @@ def test_top_keywords_more_complex():
     # Test requesting more than available
     result_all = top_keywords(text, top_n=5, remove_stopwords=False)
     assert len(result_all) == 4
-    assert set(result_all) == set([("four", 4), ("three", 3), ("two", 2), ("one", 1)])
+    assert set(result_all) == {("four", 4), ("three", 3), ("two", 2), ("one", 1)}
 
 
 def test_top_keywords_no_stopwords():

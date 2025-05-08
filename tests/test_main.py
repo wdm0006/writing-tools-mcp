@@ -3,6 +3,7 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PySide6.QtTest import QSignalSpy  # Corrected import for QSignalSpy
 
 # Adjust sys.path to allow importing from the 'app' directory
 # This assumes the tests are run from the project root directory
@@ -13,7 +14,6 @@ if APP_DIR not in sys.path:
 
 from main import LogStreamRelay, ServerWorker  # noqa: E402
 from PySide6.QtCore import QEventLoop, QObject, QTimer, Signal  # noqa: E402
-from PySide6.QtTest import QSignalSpy  # Corrected import for QSignalSpy
 
 
 # Helper class to receive signals

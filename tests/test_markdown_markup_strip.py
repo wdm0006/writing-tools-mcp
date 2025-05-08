@@ -201,9 +201,9 @@ def test_consecutive_inline_elements():
 
 def test_empty_list_items():
     md = """
-* 
+*\
 * Item 2
-*
+*\
     """
     # Empty list items might result in just newlines or be collapsed by strip()
     # The current implementation will likely yield "Item 2"
