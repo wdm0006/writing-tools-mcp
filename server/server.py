@@ -12,71 +12,33 @@
 # ///
 
 import logging
+import os
 import re
 from collections import Counter
-import sys
-
-def patch_nuitka_resource_reader_hashable():
-    for name, mod in list(sys.modules.items()):
-        if name and name.startswith("nuitka_resource_reader"):
-            for attr in dir(mod):
-                obj = getattr(mod, attr)
-                if isinstance(obj, type) and not hasattr(obj, "__hash__"):
-                    setattr(obj, "__hash__", lambda self: id(self))
-
-patch_nuitka_resource_reader_hashable()
-
-# Only patch if running in a Nuitka-built, frozen executable
-if getattr(sys, 'frozen', False) and globals().get('__compiled__', False):
-    import pyphen
-    import os
-
-    orig_load = pyphen.Pyphen._load
-    def safe_load(self, lang):
-        try:
-            return orig_load(self, lang)
-        except TypeError:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            dict_path = os.path.join(base_dir, "pyphen", "dictionaries", f"{lang}.dic")
-            with open(dict_path, "r", encoding="utf-8") as f:
-                return f.read()
-    pyphen.Pyphen._load = safe_load
-
-    # Patch __init__ to always use the file path for dictionaries
-    orig_init = pyphen.Pyphen.__init__
-    def safe_init(self, *args, **kwargs):
-        if 'filename' not in kwargs and 'lang' in kwargs:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            dict_path = os.path.join(base_dir, "pyphen", "dictionaries", f"{kwargs['lang']}.dic")
-            kwargs['filename'] = dict_path
-        orig_init(self, *args, **kwargs)
-    pyphen.Pyphen.__init__ = safe_init
 
 import spacy
+import textstat
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 from mcp.server.fastmcp import FastMCP
 from spellchecker import SpellChecker
-from textstat import flesch_kincaid_grade, flesch_reading_ease, gunning_fog, textstat
 
-# Configure logging
+logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
+logger.debug("Starting server.py initialization")
 
 mcp = FastMCP("Writing Tools MCP Server")
 
-# Load spaCy model
 try:
     try:
         nlp = spacy.load("en_core_web_sm")
-    except TypeError as e:
-        # This can happen in Nuitka builds due to unhashable resource reader
+    except TypeError:
         import os
+
         base_dir = os.path.dirname(os.path.abspath(__file__))
         model_path = os.path.join(base_dir, "en_core_web_sm")
         nlp = spacy.load(model_path)
 except OSError:
-    # If the model isn't installed, show a helpful message
     logging.info("Downloading spaCy English model, this may take a while...")
     from spacy.cli import download
 
@@ -324,24 +286,21 @@ def split_paragraphs(text):
     return [p.strip() for p in paragraphs if p.strip()]
 
 
-def strip_markdown_markup(text: str) -> str:
-    """
-    Strips markdown markup from text, extracting a plain text representation.
-    Handles links (uses link text) and images (uses alt text).
-    Aims for a simple and reliable extraction, not exhaustive.
-    """
-    md = MarkdownIt()
-    tokens = md.parse(text)
+def strip_markdown_markup(text):
+    """Strip markdown markup from text, returning only the content.
 
+    This is a simple and reliable implementation that extracts text content from markdown
+    while preserving basic structure (paragraphs, line breaks) but removing all markup.
+    """
+    if not text or text.isspace():
+        return ""
+
+    md = MarkdownIt()
+    tokens = md.parse(text.strip())
     content_parts = []
 
     for token in tokens:
         if token.type == "text":
-            content_parts.append(token.content)
-        elif token.type == "image":
-            # token.content is the alt text for an image
-            content_parts.append(token.content)
-        elif token.type == "code_inline":
             content_parts.append(token.content)
         elif token.type == "fence":  # Block code
             content_parts.append(token.content)
@@ -352,7 +311,7 @@ def strip_markdown_markup(text: str) -> str:
         elif token.type == "hardbreak":
             content_parts.append("\n\n")
         elif token.type == "html_inline" or token.type == "html_block":
-            # For simplicity, ignoring HTML content/tags as per "simple and reliable" for MD.
+            # For simplicity, ignoring HTML content/tags
             pass
         elif token.type == "inline" and token.children:
             # Process children of inline tokens (e.g., text within emphasis, strong, links)
@@ -374,24 +333,18 @@ def strip_markdown_markup(text: str) -> str:
                     content_parts.append("\n")
                 else:
                     content_parts.append("\n\n")
-            elif not content_parts:  # Handle case of empty paragraph if it results in tokens
+            elif not content_parts:  # Handle case of empty paragraph
                 content_parts.append("\n\n")
         elif token.type == "list_item_close":
-            current_text_so_far = "".join(content_parts)
-            if (
-                current_text_so_far
-                and not current_text_so_far.endswith("\n")
-                and not current_text_so_far.endswith("\n\n")
-            ):
-                content_parts.append("\n")
+            current_text_so_far = "".join(content_parts).strip()
+            # Only add newlines for non-empty list items
+            if current_text_so_far:
+                if not current_text_so_far.endswith("\n\n"):
+                    content_parts.append("\n\n")
 
-    result = "".join(content_parts)
-
-    # Normalize spacing
-    result = re.sub(r" +", " ", result)
+    result = "".join(content_parts).strip()
+    # Collapse multiple newlines into two
     result = re.sub(r"\n{3,}", "\n\n", result)
-    result = result.strip()
-
     return result
 
 
@@ -490,9 +443,9 @@ def readability_score(text: str, level: str = "full") -> dict:
         if not text_segment or len(text_segment.split()) < 3:
             return {"flesch": None, "kincaid": None, "fog": None}
         return {
-            "flesch": flesch_reading_ease(text_segment),
-            "kincaid": flesch_kincaid_grade(text_segment),
-            "fog": gunning_fog(text_segment),
+            "flesch": textstat.flesch_reading_ease(text_segment),
+            "kincaid": textstat.flesch_kincaid_grade(text_segment),
+            "fog": textstat.gunning_fog(text_segment),
         }
 
     if level == "full":

@@ -4,13 +4,10 @@ import os
 import sys
 import threading
 
-# Attempt to import uvicorn. If not found, this will raise an ImportError later.
 import uvicorn
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from PySide6.QtCore import QObject, QThread, Signal, Slot
-
-# import threading # No longer directly using threading.Event for server stop
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -21,6 +18,14 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+# Configure root logger first thing
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+
 
 # Add the parent directory of 'app' to sys.path to allow importing 'server'
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,6 +44,7 @@ class QtLogHandler(logging.Handler):
     def __init__(self, append_log_func):
         super().__init__()
         self.append_log_func = append_log_func
+        self.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"))
 
     def emit(self, record):
         msg = self.format(record)
@@ -164,11 +170,19 @@ class ServerWorker(QObject):
         """
         original_stdout = sys.stdout
         original_stderr = sys.stderr
+        original_handlers = logging.root.handlers[:]
 
         try:
-            # Redirect stdout/stderr
+            # Set up logging redirection first
             sys.stdout = self._stdout_relay
             sys.stderr = self._stderr_relay
+
+            # Clear existing handlers and add our relay handler
+            logging.root.handlers = []
+            relay_handler = logging.StreamHandler(self._stdout_relay)
+            relay_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"))
+            logging.root.addHandler(relay_handler)
+
             self._stderr_relay.write("ServerWorker: stdout/stderr successfully redirected.\n")
 
             try:
@@ -193,39 +207,24 @@ class ServerWorker(QObject):
                 self._stdout_relay.write("ServerWorker: Starting Uvicorn server...\n")
                 self._uvicorn_server.run()
 
-            except ImportError as e:
-                self._stderr_relay.write(f"ServerWorker Error: Failed to import server module - {str(e)}\n")
-                raise
-            except AttributeError as e:
-                self._stderr_relay.write(f"ServerWorker Error: Invalid server configuration - {str(e)}\n")
-                raise
             except Exception as e:
                 import traceback
-                tb_str = traceback.format_exc()
+
+                tb = traceback.format_exc()
                 self._stderr_relay.write(
-                    f"ServerWorker Error: Server execution failed - {type(e).__name__}: {str(e)}\nFull traceback:\n{tb_str}\n"
+                    f"ServerWorker Error: Server execution failed - {str(e)}\nFull traceback:\n{tb}\n"
                 )
                 raise
 
         except Exception as e:
-            # Handle any errors that occurred during stream redirection or server execution
-            logging.critical(f"ServerWorker Critical Error: {type(e).__name__}: {str(e)}\n")
-            raise
+            if not isinstance(e, SystemExit):
+                self._stderr_relay.write(f"ServerWorker Critical Error: {str(e)}\n")
         finally:
-            # Clean up and restore streams
-            try:
-                if hasattr(sys.stdout, "flush"):
-                    sys.stdout.flush()
-                if hasattr(sys.stderr, "flush"):
-                    sys.stderr.flush()
-            except Exception as e:
-                logging.error(f"ServerWorker Error: Failed to flush streams - {str(e)}\n")
-
-            # Always restore original streams
+            # Restore original stdout/stderr and logging
             sys.stdout = original_stdout
             sys.stderr = original_stderr
+            logging.root.handlers = original_handlers
 
-            # Always emit finished signal
             self.finished.emit()
 
     @Slot()
@@ -432,12 +431,12 @@ class MainWindow(QMainWindow):
             "1. Open Cursor settings.<br>"
             "2. Go to the 'AI Providers' section.<br>"
             "3. Add a new provider with the following endpoint:<br>"
-            "<code>http://127.0.0.1:8001</code><br>"
+            "<code>http://127.0.0.1:8001/sse</code><br>"
             "4. Set the API type to 'FastMCP' or 'OpenAI-compatible' if available.<br>"
             "5. Save and test the connection.<br><br>"
             "<b>Claude.ai (if supported):</b><br>"
             "1. Go to Claude's integrations or custom API section.<br>"
-            "2. Enter the endpoint: <code>http://127.0.0.1:8001</code><br>"
+            "2. Enter the endpoint: <code>http://127.0.0.1:8001/sse</code><br>"
             "3. Use your MCP API key if required (see your MCP settings).<br>"
             "4. Save and test the connection.<br><br>"
             "<b>General Notes:</b><br>"

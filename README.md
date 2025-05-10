@@ -4,6 +4,8 @@ This is a Model Context Protocol (MCP) server designed to provide various text a
 
 MCP servers act as a secure bridge or interface, enabling AI models and language assistants to interact with local applications, tools, or data on a user's machine. This server leverages that protocol to offer its specialized writing-specific analysis capabilities to connected AI clients.
 
+![Experimental App](./images/screenshot.png)
+
 ## Features
 
 This server provides the following text analysis tools:
@@ -54,6 +56,21 @@ Most tools take a json configuration for MCPs, which for you will look something
 }
 
 ```
+
+## App
+
+We also have an experimental PySide app, aiming to actually package it as an app with Nuitka. It runs the server locally and exposes it as an SSE MCP on localhost. If you're running it (`make run-gui`), you can then connect to tools like cursor with the URL instead:
+
+```json
+{
+    "mcpServers": {
+        "writtingtools-sse": {
+            "url": "http://localhost:8001/sse"
+        }
+    }
+}
+```
+
 ## Usage Examples
 
 You can configure any MCP client (like Claude.ai, Windsurf, or Cursor) to connect to it. Here are some example prompts you could give to an AI assistant connected to this MCP server:
