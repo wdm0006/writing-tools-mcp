@@ -13,12 +13,11 @@ all: install test lint
 # Setup virtual environment and install dependencies
 # This target creates the venv and installs packages only if the venv
 # marker file ($(VENV_DIR)/bin/activate) doesn't exist.
-install: 
+install:
 	@echo "--- Creating virtual environment in $(VENV_DIR)... ---"
 	$(UV) venv $(VENV_DIR) --seed
-	@echo "--- Installing dependencies using uv... ---"
-	# Install main dependencies from server.py requirements and dev tools
-	$(UV) pip install "mcp[cli]" pyspellchecker textstat spacy ruff pytest
+	@echo "--- Installing dependencies from pyproject.toml using uv... ---"
+	$(UV) pip install -e ".[dev]"
 
 # Lint the code using Ruff within the virtual environment
 lint: install
@@ -31,9 +30,19 @@ format: install
 	$(UV) run ruff format .
 
 # Run tests using Pytest within the virtual environment
-test:
+test: install
 	@echo "--- Running tests with Pytest... ---"
 	$(UV) run pytest tests/
+
+# Run the MCP server
+run-server: install
+	@echo "--- Running MCP server (server.py)... ---"
+	$(UV) run python server/server.py
+
+# Run the PySide GUI
+run-gui: install
+	@echo "--- Running PySide GUI (app/main.py)... ---"
+	$(UV) run python app/main.py
 
 # Clean up the virtual environment and cache files
 clean:

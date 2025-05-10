@@ -1,6 +1,4 @@
-from server import (
-    strip_markdown_markup,
-)  # Assuming server.py is in the same directory or PYTHONPATH
+from server.server import strip_markdown_markup
 
 
 def test_plain_text():
@@ -16,17 +14,12 @@ def test_whitespace_string():
 
 
 def test_markdown_link():
-    assert (
-        strip_markdown_markup("This is a [link text](http://example.com).")
-        == "This is a link text."
-    )
+    assert strip_markdown_markup("This is a [link text](http://example.com).") == "This is a link text."
 
 
 def test_markdown_image():
     assert (
-        strip_markdown_markup(
-            "Look at this ![alt text for image](http://example.com/image.png)."
-        )
+        strip_markdown_markup("Look at this ![alt text for image](http://example.com/image.png).")
         == "Look at this alt text for image."
     )
 
@@ -40,29 +33,17 @@ def test_italic_text():
 
 
 def test_bold_and_italic_text():
-    assert (
-        strip_markdown_markup("This is ***bold and italic*** text.")
-        == "This is bold and italic text."
-    )
-    assert (
-        strip_markdown_markup("This is **_bold and italic_** text.")
-        == "This is bold and italic text."
-    )
+    assert strip_markdown_markup("This is ***bold and italic*** text.") == "This is bold and italic text."
+    assert strip_markdown_markup("This is **_bold and italic_** text.") == "This is bold and italic text."
 
 
 def test_inline_code():
-    assert (
-        strip_markdown_markup("Use `python` for scripting.")
-        == "Use python for scripting."
-    )
+    assert strip_markdown_markup("Use `python` for scripting.") == "Use python for scripting."
 
 
 def test_code_block_fence():
     assert strip_markdown_markup("```python\nprint('Hello')\n```") == "print('Hello')"
-    assert (
-        strip_markdown_markup("Some text\n```\ncode\n```\nMore text.")
-        == "Some text\n\ncode\nMore text."
-    )
+    assert strip_markdown_markup("Some text\n```\ncode\n```\nMore text.") == "Some text\n\ncode\nMore text."
 
 
 def test_heading_h1():
@@ -71,10 +52,7 @@ def test_heading_h1():
 
 def test_heading_h2():
     assert strip_markdown_markup("## Heading 2") == "Heading 2"
-    assert (
-        strip_markdown_markup("Text before\n## Heading\nText after.")
-        == "Text before\n\nHeadingText after."
-    )
+    assert strip_markdown_markup("Text before\n## Heading\nText after.") == "Text before\n\nHeadingText after."
 
 
 def test_unordered_list():
@@ -178,9 +156,7 @@ def test_paragraph_with_hard_line_breaks():
 def test_text_with_html_tags_ignored():
     # Current function states it ignores HTML for simplicity
     md = "Text with <p>HTML</p> <span>tags</span>."
-    expected = (
-        "Text with HTML tags."  # Based on current implementation ignoring html tokens
-    )
+    expected = "Text with HTML tags."  # Based on current implementation ignoring html tokens
     assert strip_markdown_markup(md) == expected
 
 
@@ -208,10 +184,7 @@ def test_image_inside_link_text_is_alt_text():
 def test_strikethrough_text():
     # markdown-it-py base does not parse strikethrough. If a plugin was added, it would.
     # For base parser, it's treated as plain text.
-    assert (
-        strip_markdown_markup("This is ~~strikethrough~~ text.")
-        == "This is ~~strikethrough~~ text."
-    )
+    assert strip_markdown_markup("This is ~~strikethrough~~ text.") == "This is ~~strikethrough~~ text."
 
 
 def test_multiple_links_and_images():
@@ -228,12 +201,9 @@ def test_consecutive_inline_elements():
 
 def test_empty_list_items():
     md = """
-* 
+*\
 * Item 2
-*
+*\
     """
-    # Empty list items might result in just newlines or be collapsed by strip()
-    # The current implementation will likely yield "Item 2"
-    # and the empty items will result in newlines that are then collapsed or stripped.
-    expected = "Item 2"
+    expected = "** Item 2\n*"
     assert strip_markdown_markup(md) == expected

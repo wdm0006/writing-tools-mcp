@@ -4,6 +4,8 @@ This is a Model Context Protocol (MCP) server designed to provide various text a
 
 MCP servers act as a secure bridge or interface, enabling AI models and language assistants to interact with local applications, tools, or data on a user's machine. This server leverages that protocol to offer its specialized writing-specific analysis capabilities to connected AI clients.
 
+![Experimental App](./images/screenshot.png)
+
 ## Features
 
 This server provides the following text analysis tools:
@@ -26,7 +28,7 @@ This server is packaged as a Python script with embedded dependency management u
 
 1.  **Prerequisites**:
     *   Python 3.10 or higher.
-    *   `pip` (Python package installer).
+    *   `uv` (pip will work also but highly recommend `uv`.
 
 2.  **Dependencies**: The script automatically handles dependencies if you run it correctly. The required libraries are:
     *   `mcp[cli]`
@@ -35,23 +37,43 @@ This server is packaged as a Python script with embedded dependency management u
     *   `spacy` (and its `en_core_web_sm` model)
 
 3.  **Running the Server**:
-    *   Navigate to the directory containing `server.py`.
-    *   Execute the script. The `mcp` library's script runner (or a compatible tool like `pipx run ./server.py`) will handle dependency installation and execution.
-        ```bash
-        # Using pipx (recommended for isolating dependencies)
-        pipx run ./server.py
 
-        # Or potentially directly if your environment is set up
-        # python server.py
-        ```
-    *   The first time you run it, it might download the `spacy` English model (`en_core_web_sm`).
-    *   The server will start and print the address it's listening on (usually `http://127.0.0.1:8000` or similar).
+Most tools take a json configuration for MCPs, which for you will look something like:
+
+```json
+{
+  "mcpServers": {
+    "writingtools": {
+      "command": "uv",
+            "args": [
+                "--directory",
+                "/path/to/this/repo/writing-tools-mcp",
+                "run",
+                "server.py"
+            ]
+    }
+  }
+}
+
+```
+
+## App
+
+We also have an experimental PySide app, aiming to actually package it as an app with Nuitka. It runs the server locally and exposes it as an SSE MCP on localhost. If you're running it (`make run-gui`), you can then connect to tools like cursor with the URL instead:
+
+```json
+{
+    "mcpServers": {
+        "writtingtools-sse": {
+            "url": "http://localhost:8001/sse"
+        }
+    }
+}
+```
 
 ## Usage Examples
 
-Once the server is running, you can configure an MCP client (like Claude.ai or within Cursor) to connect to it. The specific configuration steps depend on the client, but generally involve adding the server's address (e.g., `http://127.0.0.1:8000`) to the client's MCP settings.
-
-Here are some example prompts you could give to an AI assistant connected to this MCP server:
+You can configure any MCP client (like Claude.ai, Windsurf, or Cursor) to connect to it. Here are some example prompts you could give to an AI assistant connected to this MCP server:
 
 **General Analysis:**
 
@@ -65,19 +87,13 @@ Here are some example prompts you could give to an AI assistant connected to thi
 *   "What are the top 5 keywords in the following abstract?" (Provide text, calls `top_keywords` with `top_n=5`)
 *   "Calculate the keyword density for 'artificial intelligence' in this paper." (Provide text, calls `keyword_density` with `keyword="artificial intelligence"`)
 *   "Show me all sentences containing the term 'MCP'." (Provide text, calls `keyword_context` with `keyword="MCP"`)
+*   "Search the web for pages based on the top 5 keyworkds in this text, and compare those pages to mine" (Provide text, calls `top_keywords` with `top_n=5`, then passes that to a different web search tool if available)
 
 **Style and Structure:**
 
 *   "Identify any sentences using passive voice in my draft." (Provide text, calls `passive-voice-detection`)
 *   "What's the word count for this paragraph?" (Provide text, calls `word_count`)
 *   "Get the readability scores for each section of this document." (Provide markdown text, calls `readability-score` with `level="section"`)
-
-**Using with Cursor:**
-
-While this server doesn't directly manipulate the Cursor editor like some MCPs ([like this one](https://glama.ai/mcp/servers/4fg1gxbcex)), you can use Cursor's chat interface (if configured to use this MCP) to analyze code comments, documentation files (like this README), or any text within your project.
-
-*   *Select a block of comments in your code.* "Check the spelling in the selected text."
-*   *Have a documentation file open.* "What is the reading time for the section titled 'Installation'?"
 
 ## Tool Reference
 
@@ -202,4 +218,4 @@ Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 
-Specify your license here (e.g., MIT License). If you haven't chosen one, consider adding an open-source license.
+This is MIT licensed

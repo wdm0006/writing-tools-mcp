@@ -1,4 +1,4 @@
-from server import spellcheck
+from server.server import spellcheck
 
 # Basic spellcheck tests
 
