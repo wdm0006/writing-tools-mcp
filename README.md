@@ -21,6 +21,8 @@ This server provides the following text analysis tools:
 *   **`top-keywords`**: Identify the most frequently used keywords in the text.
 *   **`keyword-context`**: Extract sentences or phrases where a specific keyword appears.
 *   **`passive-voice-detection`**: Detect passive voice constructions in the text.
+*   **`perplexity-analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2.
+*   **`stylometric-analysis`**: Analyze stylometric features (sentence length, lexical diversity, POS ratios) for AI detection.
 
 ## Installation
 
@@ -35,6 +37,10 @@ This server is packaged as a Python script with embedded dependency management u
     *   `pyspellchecker`
     *   `textstat`
     *   `spacy` (and its `en_core_web_sm` model)
+    *   `transformers` (for GPT-2 model in perplexity analysis)
+    *   `torch` (for neural network computations)
+    *   `pyyaml` (for configuration management)
+    *   `numpy` (for numerical computations)
 
 3.  **Running the Server**:
 
@@ -94,6 +100,13 @@ You can configure any MCP client (like Claude.ai, Windsurf, or Cursor) to connec
 *   "Identify any sentences using passive voice in my draft." (Provide text, calls `passive-voice-detection`)
 *   "What's the word count for this paragraph?" (Provide text, calls `word_count`)
 *   "Get the readability scores for each section of this document." (Provide markdown text, calls `readability-score` with `level="section"`)
+
+**AI Detection:**
+
+*   "Analyze this text for signs of AI generation using perplexity analysis." (Provide text, calls `perplexity-analysis`)
+*   "Check if this essay was written by AI using stylometric analysis." (Provide text, calls `stylometric-analysis`)
+*   "Compare the writing style of this text against human writing baselines." (Provide text, calls `stylometric-analysis`)
+*   "Is this text too uniform in sentence structure to be human-written?" (Provide text, calls both AI detection tools)
 
 ## Tool Reference
 
@@ -209,6 +222,37 @@ Below is a detailed reference for each tool provided by the server.
 *   **Parameters**:
     *   `text` (`str`): The text to analyze.
 *   **Returns**: `list[str]` - A list of sentences identified as potentially containing passive voice.
+
+---
+
+**`perplexity-analysis`**
+
+*   **Description**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2. Computes document-level and sentence-level perplexity along with burstiness (variance of perplexity across sentences). Low perplexity combined with low burstiness is a statistical signal used by AI detectors.
+*   **Parameters**:
+    *   `text` (`str`): The text to analyze.
+    *   `language` (`str`, optional, default=`"en"`): Language code (only "en" supported currently).
+*   **Returns**: `dict` - Analysis results including:
+    *   `doc_ppl` (`float`): Document-level perplexity score
+    *   `doc_burstiness` (`float`): Burstiness score (standard deviation of sentence perplexities)
+    *   `sentences` (`list`): Sentence-level perplexity scores
+    *   `config` (`dict`): Model configuration and thresholds
+    *   `flags` (`dict`): AI detection flags with confidence and explanations
+
+---
+
+**`stylometric-analysis`**
+
+*   **Description**: Analyze text for stylometric features and detect AI-generated content. Computes sentence length distribution, lexical diversity metrics (TTR, Hapax Legomena), POS ratios, and other stylometric features. Flags outliers relative to human writing baselines using z-score analysis.
+*   **Parameters**:
+    *   `text` (`str`): The text to analyze.
+    *   `baseline` (`str`, optional, default=`"brown_corpus"`): Baseline corpus name for comparison.
+    *   `language` (`str`, optional, default=`"en"`): Language code (only "en" supported currently).
+*   **Returns**: `dict` - Stylometric analysis including:
+    *   `features` (`dict`): Extracted stylometric features (sentence length, TTR, hapax rate, POS ratios, etc.)
+    *   `z_scores` (`dict`): Z-scores of features against the baseline
+    *   `flags` (`dict`): AI detection flags with confidence levels and explanations
+    *   `sentence_analysis` (`list`): Per-sentence analysis with z-scores
+    *   `config` (`dict`): Baseline information and analysis thresholds
 
 ---
 

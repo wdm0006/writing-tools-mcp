@@ -7,13 +7,13 @@ features like sentence length, lexical diversity, and part-of-speech patterns.
 
 from .analyzer import StylemetricAnalyzer
 from .baselines import BaselineManager
-from .statistical import calculate_z_scores, flag_outliers, generate_flags, calculate_sentence_z_scores
+from .statistical import calculate_sentence_z_scores, calculate_z_scores, flag_outliers, generate_flags
 
 __all__ = [
     "StylemetricAnalyzer",
-    "BaselineManager", 
+    "BaselineManager",
     "calculate_z_scores",
     "flag_outliers",
     "generate_flags",
-    "calculate_sentence_z_scores"
-] 
+    "calculate_sentence_z_scores",
+]

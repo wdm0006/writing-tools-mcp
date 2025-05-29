@@ -19,10 +19,10 @@
 import logging
 import os
 import re
+import statistics
 from collections import Counter
 from functools import lru_cache
 from pathlib import Path
-import statistics
 
 import numpy as np
 import spacy
@@ -36,7 +36,13 @@ from spellchecker import SpellChecker
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
 # Stylometry imports
-from .stylometry import StylemetricAnalyzer, BaselineManager, calculate_z_scores, generate_flags, calculate_sentence_z_scores
+from .stylometry import (
+    BaselineManager,
+    StylemetricAnalyzer,
+    calculate_sentence_z_scores,
+    calculate_z_scores,
+    generate_flags,
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -63,6 +69,7 @@ except OSError:
 # Initialize stylometry components
 stylometry_analyzer = StylemetricAnalyzer(nlp)
 baseline_manager = BaselineManager()
+
 
 def preprocess_text(text, remove_stopwords=True, lemmatize=True):
     """
@@ -374,15 +381,12 @@ def load_config():
             "model_name": "gpt2",
             "max_length": 512,
             "overlap": 50,
-            "thresholds": {
-                "ppl_max": 25.0,
-                "burstiness_min": 2.5
-            },
+            "thresholds": {"ppl_max": 25.0, "burstiness_min": 2.5},
             "device": "cpu",
-            "language": "en"
+            "language": "en",
         }
     }
-    
+
     if config_path.exists():
         try:
             with open(config_path) as f:
@@ -394,7 +398,7 @@ def load_config():
                         default_config["perplexity"]["thresholds"].update(user_config["perplexity"]["thresholds"])
         except Exception as e:
             logger.warning(f"Error loading config file: {e}. Using defaults.")
-    
+
     return default_config
 
 
@@ -405,22 +409,22 @@ def get_perplexity_model():
         logger.info("Loading GPT-2 model for perplexity analysis...")
         config = load_config()
         model_name = config["perplexity"]["model_name"]
-        
+
         tokenizer = GPT2Tokenizer.from_pretrained(model_name)
         model = GPT2LMHeadModel.from_pretrained(model_name)
-        
+
         # Set to evaluation mode and ensure CPU usage
         model.eval()
         if config["perplexity"]["device"] == "cpu":
             model = model.to("cpu")
-        
+
         # Add padding token if not present
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        
+
         logger.info("GPT-2 model loaded successfully")
         return model, tokenizer, config["perplexity"]
-    
+
     except Exception as e:
         logger.error(f"Error loading GPT-2 model: {e}")
         raise
@@ -784,104 +788,104 @@ def _split_into_sentences(text):
 def _chunk_text(text, tokenizer, max_length=512, overlap=50):
     """
     Split text into overlapping chunks for processing long texts.
-    
+
     Args:
         text (str): Input text to chunk
         tokenizer: GPT-2 tokenizer
         max_length (int): Maximum tokens per chunk
         overlap (int): Number of overlapping tokens between chunks
-    
+
     Returns:
         list: List of text chunks
     """
     # Tokenize the full text
     tokens = tokenizer.encode(text, add_special_tokens=False)
-    
+
     if len(tokens) <= max_length:
         return [text]
-    
+
     # Ensure overlap is not larger than max_length to prevent infinite loops
     overlap = min(overlap, max_length - 1)
-    
+
     chunks = []
     start = 0
-    
+
     while start < len(tokens):
         end = min(start + max_length, len(tokens))
         chunk_tokens = tokens[start:end]
         chunk_text = tokenizer.decode(chunk_tokens, clean_up_tokenization_spaces=True)
         chunks.append(chunk_text)
-        
+
         # Move to next chunk with overlap
         next_start = end - overlap
-        
+
         # Ensure we always advance to prevent infinite loops
         if next_start <= start:
             next_start = start + 1
-            
+
         start = next_start
-        
+
         # Safety check to prevent infinite loops
         if len(chunks) > 100:  # Reasonable upper limit
             break
-    
+
     return chunks
 
 
 def _calculate_perplexity(text, model, tokenizer):
     """
     Calculate perplexity for a given text using GPT-2.
-    
+
     Args:
         text (str): Input text
         model: GPT-2 model
         tokenizer: GPT-2 tokenizer
-    
+
     Returns:
         float: Perplexity score
     """
     if not text.strip():
-        return float('inf')
-    
+        return float("inf")
+
     try:
         # Tokenize input
         inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=1024)
         input_ids = inputs.input_ids
-        
+
         # Calculate loss
         with torch.no_grad():
             outputs = model(input_ids, labels=input_ids)
             loss = outputs.loss.item()
-        
+
         # Calculate perplexity from loss
         perplexity = torch.exp(torch.tensor(loss)).item()
-        
+
         return perplexity
-    
+
     except Exception as e:
         logger.warning(f"Error calculating perplexity for text: {e}")
-        return float('inf')
+        return float("inf")
 
 
 def _calculate_burstiness(sentence_perplexities):
     """
     Calculate burstiness as the standard deviation of sentence perplexities.
-    
+
     Args:
         sentence_perplexities (list): List of perplexity scores for sentences
-    
+
     Returns:
         float: Burstiness score (standard deviation)
     """
     if len(sentence_perplexities) < 2:
         return 0.0
-    
+
     # Filter out infinite values
     valid_perplexities = [p for p in sentence_perplexities if not np.isinf(p)]
-    
+
     if len(valid_perplexities) < 2:
         return 0.0
-    
+
     return statistics.stdev(valid_perplexities)
 
 
@@ -889,17 +893,17 @@ def _calculate_burstiness(sentence_perplexities):
 def perplexity_analysis(text: str, language: str = "en") -> dict:
     """
     Analyze text for perplexity and burstiness to detect AI-generated content.
-    
+
     This function computes document-level and sentence-level perplexity using GPT-2,
     along with burstiness (variance of perplexity across sentences). Low perplexity
     combined with low burstiness is a statistical signal used by AI detectors.
-    
+
     Args:
         text (str): The text to analyze
         language (str): Language code (only "en" supported currently)
-    
+
     Returns:
-        dict: Analysis results including document perplexity, burstiness, 
+        dict: Analysis results including document perplexity, burstiness,
               sentence-level scores, and AI detection flags
     """
     if language != "en":
@@ -909,9 +913,9 @@ def perplexity_analysis(text: str, language: str = "en") -> dict:
             "doc_burstiness": None,
             "sentences": [],
             "config": {},
-            "flags": {"high_ai_probability": False, "reasons": []}
+            "flags": {"high_ai_probability": False, "reasons": []},
         }
-    
+
     if not text.strip():
         return {
             "error": "Empty text provided",
@@ -919,13 +923,13 @@ def perplexity_analysis(text: str, language: str = "en") -> dict:
             "doc_burstiness": None,
             "sentences": [],
             "config": {},
-            "flags": {"high_ai_probability": False, "reasons": []}
+            "flags": {"high_ai_probability": False, "reasons": []},
         }
-    
+
     try:
         # Load model and configuration
         model, tokenizer, config = get_perplexity_model()
-        
+
         # Split text into sentences
         sentences = _split_into_sentences(text)
         if not sentences:
@@ -935,73 +939,75 @@ def perplexity_analysis(text: str, language: str = "en") -> dict:
                 "doc_burstiness": None,
                 "sentences": [],
                 "config": config,
-                "flags": {"high_ai_probability": False, "reasons": []}
+                "flags": {"high_ai_probability": False, "reasons": []},
             }
-        
+
         # Calculate perplexity for each sentence
         sentence_results = []
         sentence_perplexities = []
-        
+
         for sentence in sentences:
             if sentence.strip():
                 # For long sentences, chunk them and average the perplexity
                 chunks = _chunk_text(sentence, tokenizer, config["max_length"], config["overlap"])
                 chunk_perplexities = []
-                
+
                 for chunk in chunks:
                     chunk_ppl = _calculate_perplexity(chunk, model, tokenizer)
                     if not np.isinf(chunk_ppl):
                         chunk_perplexities.append(chunk_ppl)
-                
+
                 # Average perplexity across chunks for this sentence
                 if chunk_perplexities:
                     sentence_ppl = sum(chunk_perplexities) / len(chunk_perplexities)
                 else:
-                    sentence_ppl = float('inf')
-                
-                sentence_results.append({
-                    "text": sentence,
-                    "ppl": round(sentence_ppl, 2) if not np.isinf(sentence_ppl) else None
-                })
-                
+                    sentence_ppl = float("inf")
+
+                sentence_results.append(
+                    {"text": sentence, "ppl": round(sentence_ppl, 2) if not np.isinf(sentence_ppl) else None}
+                )
+
                 if not np.isinf(sentence_ppl):
                     sentence_perplexities.append(sentence_ppl)
-        
+
         # Calculate document-level perplexity
         # For document level, we can either average sentence perplexities or calculate on full text
         # We'll use the average of sentence perplexities for consistency
         if sentence_perplexities:
             doc_ppl = sum(sentence_perplexities) / len(sentence_perplexities)
         else:
-            doc_ppl = float('inf')
-        
+            doc_ppl = float("inf")
+
         # Calculate burstiness
         doc_burstiness = _calculate_burstiness(sentence_perplexities)
-        
+
         # Check against thresholds for AI detection flags
         flags = {"high_ai_probability": False, "reasons": []}
         thresholds = config["thresholds"]
-        
+
         if not np.isinf(doc_ppl) and doc_ppl < thresholds["ppl_max"]:
             if doc_burstiness < thresholds["burstiness_min"]:
                 flags["high_ai_probability"] = True
-                flags["reasons"].append(f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}) and low burstiness ({doc_burstiness:.2f} < {thresholds['burstiness_min']})")
+                flags["reasons"].append(
+                    f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}) and low burstiness ({doc_burstiness:.2f} < {thresholds['burstiness_min']})"
+                )
             else:
-                flags["reasons"].append(f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}) but acceptable burstiness ({doc_burstiness:.2f})")
+                flags["reasons"].append(
+                    f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}) but acceptable burstiness ({doc_burstiness:.2f})"
+                )
         elif doc_burstiness < thresholds["burstiness_min"]:
-            flags["reasons"].append(f"Low burstiness ({doc_burstiness:.2f} < {thresholds['burstiness_min']}) but acceptable perplexity")
-        
+            flags["reasons"].append(
+                f"Low burstiness ({doc_burstiness:.2f} < {thresholds['burstiness_min']}) but acceptable perplexity"
+            )
+
         return {
             "doc_ppl": round(doc_ppl, 2) if not np.isinf(doc_ppl) else None,
             "doc_burstiness": round(doc_burstiness, 2),
             "sentences": sentence_results,
-            "config": {
-                "model": config["model_name"],
-                "thresholds": thresholds
-            },
-            "flags": flags
+            "config": {"model": config["model_name"], "thresholds": thresholds},
+            "flags": flags,
         }
-        
+
     except Exception as e:
         logger.error(f"Error in perplexity analysis: {e}")
         return {
@@ -1010,7 +1016,7 @@ def perplexity_analysis(text: str, language: str = "en") -> dict:
             "doc_burstiness": None,
             "sentences": [],
             "config": {},
-            "flags": {"high_ai_probability": False, "reasons": []}
+            "flags": {"high_ai_probability": False, "reasons": []},
         }
 
 
@@ -1018,16 +1024,16 @@ def perplexity_analysis(text: str, language: str = "en") -> dict:
 def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: str = "en") -> dict:
     """
     Analyze text for stylometric features and detect AI-generated content.
-    
+
     Computes sentence length distribution, lexical diversity metrics (TTR, Hapax Legomena),
     POS ratios, and other stylometric features. Flags outliers relative to human writing
     baselines using z-score analysis.
-    
+
     Args:
         text: Input text to analyze
         baseline: Baseline corpus name ("brown_corpus" or custom baseline name)
         language: Language code (only "en" supported currently)
-    
+
     Returns:
         dict: Stylometric analysis with features, z-scores, and AI detection flags
     """
@@ -1038,9 +1044,9 @@ def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: st
             "z_scores": {},
             "flags": {"high_ai_probability": False, "reasons": []},
             "sentence_analysis": [],
-            "config": {}
+            "config": {},
         }
-    
+
     if not text.strip():
         return {
             "error": "Empty text provided",
@@ -1048,19 +1054,17 @@ def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: st
             "z_scores": {},
             "flags": {"high_ai_probability": False, "reasons": []},
             "sentence_analysis": [],
-            "config": {}
+            "config": {},
         }
-    
+
     try:
         # Load configuration
         config = load_config()
         stylometry_config = config.get("stylometry", {})
-        thresholds = stylometry_config.get("thresholds", {
-            "warning_z": 2.0,
-            "error_z": 3.0,
-            "ai_confidence_threshold": 0.7
-        })
-        
+        thresholds = stylometry_config.get(
+            "thresholds", {"warning_z": 2.0, "error_z": 3.0, "ai_confidence_threshold": 0.7}
+        )
+
         # Load baseline
         try:
             baseline_data = baseline_manager.load_baseline(baseline)
@@ -1072,24 +1076,23 @@ def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: st
                 "z_scores": {},
                 "flags": {"high_ai_probability": False, "reasons": []},
                 "sentence_analysis": [],
-                "config": {"baseline": baseline, "thresholds": thresholds}
+                "config": {"baseline": baseline, "thresholds": thresholds},
             }
-        
+
         # Extract stylometric features
         features = stylometry_analyzer.extract_features(text)
-        
+
         # Calculate z-scores against baseline
         z_scores = calculate_z_scores(features, baseline_stats)
-        
+
         # Generate AI detection flags
         flags = generate_flags(z_scores, features, thresholds)
-        
+
         # Calculate sentence-level z-scores
         sentence_analysis = calculate_sentence_z_scores(
-            features.get("sentence_positions", []),
-            baseline_stats.get("avg_sentence_len", {})
+            features.get("sentence_positions", []), baseline_stats.get("avg_sentence_len", {})
         )
-        
+
         # Round numerical values for cleaner output
         rounded_features = {}
         for key, value in features.items():
@@ -1101,9 +1104,9 @@ def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: st
                 rounded_features[key] = round(value, 3)
             else:
                 rounded_features[key] = value
-        
+
         rounded_z_scores = {k: round(v, 2) for k, v in z_scores.items()}
-        
+
         return {
             "features": rounded_features,
             "z_scores": rounded_z_scores,
@@ -1112,10 +1115,10 @@ def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: st
             "config": {
                 "baseline": baseline,
                 "baseline_info": baseline_data.get("corpus_info", {}),
-                "thresholds": thresholds
-            }
+                "thresholds": thresholds,
+            },
         }
-        
+
     except Exception as e:
         logger.error(f"Error in stylometric analysis: {e}")
         return {
@@ -1124,7 +1127,7 @@ def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: st
             "z_scores": {},
             "flags": {"high_ai_probability": False, "reasons": []},
             "sentence_analysis": [],
-            "config": {"baseline": baseline, "thresholds": thresholds}
+            "config": {"baseline": baseline, "thresholds": thresholds},
         }
 
 
