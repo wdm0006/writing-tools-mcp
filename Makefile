@@ -37,7 +37,7 @@ test: install
 # Run the MCP server
 run-server: install
 	@echo "--- Running MCP server (server.py)... ---"
-	$(UV) run python server/server.py
+	$(UV) run python -m server.server
 
 # Run the PySide GUI
 run-gui: install

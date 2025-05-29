@@ -30,7 +30,7 @@ logging.basicConfig(
 # Add the parent directory of 'app' to sys.path to allow importing 'server'
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(APP_DIR)
-SERVER_DIR = os.path.join(PROJECT_ROOT, "server")
+SERVER_DIR = PROJECT_ROOT
 
 # Prepend SERVER_DIR first, then PROJECT_ROOT to prioritize modules within server/
 # when just 'import server' is used.

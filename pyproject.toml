@@ -20,7 +20,11 @@ dependencies = [
     "spacy",
     "markdown-it-py",
     "Pyside6",
-    "requests"
+    "requests",
+    "transformers>=4.35.0",
+    "torch>=2.0.0",
+    "pyyaml>=6.0",
+    "numpy>=1.24.0"
 ]
 
 [project.optional-dependencies]

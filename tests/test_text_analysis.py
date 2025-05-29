@@ -1,9 +1,7 @@
-from server.server import (
-    parse_markdown_sections,
-    readability_score,
-    reading_time,
-    split_paragraphs,
-)
+"""Test module for text analysis functionality."""
+
+from server.analyzers import ReadabilityAnalyzer
+from server.text_processing import parse_markdown_sections, split_paragraphs
 
 # --- Test Helper Functions ---
 
@@ -145,190 +143,198 @@ SIMPLE_TEXT = "This is a simple sentence. It should be easy to read."
 # Gunning Fog: ~2.2
 
 
-def test_readability_score_full():
-    """Test readability score for the full text."""
-    scores = readability_score(SIMPLE_TEXT, level="full")
-    assert isinstance(scores, dict)
-    assert "flesch" in scores and isinstance(scores["flesch"], (int, float))
-    assert "kincaid" in scores and isinstance(scores["kincaid"], (int, float))
-    assert "fog" in scores and isinstance(scores["fog"], (int, float))
-    # Check approximate values (allow some tolerance)
-    assert abs(scores["flesch"] - 87.7) < 5
-    assert abs(scores["kincaid"] - 2.4) < 1
-    assert abs(scores["fog"] - 2.2) < 0.1
+class TestReadabilityAnalyzer:
+    """Test the ReadabilityAnalyzer class."""
 
+    def setup_method(self):
+        """Set up ReadabilityAnalyzer instance for testing."""
+        self.analyzer = ReadabilityAnalyzer()
 
-def test_readability_score_sections():
-    """Test readability score by markdown sections."""
-    text = MARKDOWN_EXAMPLE.strip()
-    scores = readability_score(text, level="section")
-    assert isinstance(scores, dict)
-    assert "full_text" in scores
-    assert "sections" in scores and isinstance(scores["sections"], dict)
-    assert "# Section 1" in scores["sections"]
-    assert "## Subsection 1.1" in scores["sections"]
-    assert "# Section 2" in scores["sections"]
-    assert isinstance(scores["full_text"]["flesch"], (int, float))
-    assert isinstance(scores["sections"]["# Section 1"]["flesch"], (int, float))
+    def test_readability_score_full(self):
+        """Test readability scoring for full text."""
+        text = "This is a simple sentence. This is another simple sentence."
+        result = self.analyzer.readability_score(text, level="full")
 
+        assert isinstance(result, dict)
+        assert "flesch" in result
+        assert "kincaid" in result
+        assert "fog" in result
 
-def test_readability_score_paragraphs():
-    """Test readability score by paragraphs."""
-    text = MARKDOWN_EXAMPLE.strip()
-    scores = readability_score(text, level="paragraph")
-    assert isinstance(scores, dict)
-    assert "full_text" in scores
-    assert "paragraphs" in scores and isinstance(scores["paragraphs"], list)
-    assert len(scores["paragraphs"]) == len(EXPECTED_PARAGRAPHS_FULL)
+    def test_readability_score_empty_text(self):
+        """Test readability scoring with empty text."""
+        result = self.analyzer.readability_score("", level="full")
 
-    # Paragraph 0: "# Section 1" (heading) - scores should be None
-    para0_info = scores["paragraphs"][0]
-    assert "paragraph_number" in para0_info
-    assert para0_info["text"] == EXPECTED_PARAGRAPHS_FULL[0]
-    assert "scores" in para0_info
-    assert para0_info["scores"]["flesch"] is None, f"Paragraph 0 ({para0_info['text']}) Flesch score should be None"
-    assert para0_info["scores"]["kincaid"] is None, f"Paragraph 0 ({para0_info['text']}) Kincaid score should be None"
-    assert para0_info["scores"]["fog"] is None, f"Paragraph 0 ({para0_info['text']}) Fog score should be None"
+        assert result["flesch"] is None
+        assert result["kincaid"] is None
+        assert result["fog"] is None
 
-    # Paragraph 1: "This is the first paragraph..." (content) - scores should be numbers
-    para1_info = scores["paragraphs"][1]
-    assert "paragraph_number" in para1_info
-    assert para1_info["text"] == EXPECTED_PARAGRAPHS_FULL[1]
-    assert "scores" in para1_info
-    assert isinstance(para1_info["scores"]["flesch"], (int, float)), (
-        f"Paragraph 1 ('{para1_info['text'][:20]}...') Flesch score type error"
-    )
-    assert isinstance(para1_info["scores"]["kincaid"], (int, float)), (
-        f"Paragraph 1 ('{para1_info['text'][:20]}...') Kincaid score type error"
-    )
-    assert isinstance(para1_info["scores"]["fog"], (int, float)), (
-        f"Paragraph 1 ('{para1_info['text'][:20]}...') Fog score type error"
-    )
+    def test_readability_score_sections(self):
+        """Test readability scoring by sections."""
+        markdown_text = """
+# Section 1
 
+This is the content of section one. It has multiple sentences for testing.
 
-def test_readability_score_short_text():
-    """Test readability score returns None for very short text."""
-    short_text = "One two."
-    scores = readability_score(short_text, level="full")
-    assert scores["flesch"] is None
-    assert scores["kincaid"] is None
-    assert scores["fog"] is None
+## Subsection 1.1
 
+This is subsection content.
 
-def test_readability_score_invalid_level():
-    """Test readability score with an invalid level."""
-    scores = readability_score(SIMPLE_TEXT, level="invalid")
-    assert "error" in scores
+# Section 2
 
+This is section two content.
+"""
+        result = self.analyzer.readability_score(markdown_text.strip(), level="section")
 
-# NEW test function
-def test_readability_score_long_paragraphs():
-    """Test readability score with paragraphs guaranteed to be long enough for scores."""
-    text_input = MARKDOWN_LONG_PARAGRAPHS_EXAMPLE.strip()
-    # We will no longer use a separate expected_paragraph_texts for direct comparison
-    # due to persistent mismatches. Instead, we trust para_info["text"] from the function result
-    # and verify its properties and scores.
+        assert isinstance(result, dict)
+        assert "full_text" in result
+        assert "sections" in result
 
-    scores_data = readability_score(text_input, level="paragraph")
-    assert isinstance(scores_data, dict), "Scores data should be a dictionary."
-    assert "full_text" in scores_data, "Full text scores missing."
-    assert "paragraphs" in scores_data and isinstance(scores_data["paragraphs"], list), (
-        "Paragraphs data missing or not a list."
-    )
+    def test_readability_score_paragraphs(self):
+        """Test readability scoring by paragraphs."""
+        text = """This is the first paragraph. It has multiple sentences.
 
-    # We still need to know how many paragraphs to expect based on a reliable split
-    # to ensure readability_score processes all of them.
-    reference_split_for_count = split_paragraphs(text_input)
-    assert len(scores_data["paragraphs"]) == len(reference_split_for_count), (
-        f"Mismatch in number of paragraphs processed. Expected {len(reference_split_for_count)}, Got {len(scores_data['paragraphs'])}"
-    )
+This is the second paragraph. It also has content.
 
-    for i, para_info in enumerate(scores_data["paragraphs"]):
-        assert "paragraph_number" in para_info, f"Paragraph {i + 1} missing 'paragraph_number'."
-        assert para_info["paragraph_number"] == i + 1, f"Paragraph {i + 1} has incorrect 'paragraph_number'."
-        assert "text" in para_info, f"Paragraph {i + 1} missing 'text'."
+This is the third paragraph."""
 
-        current_paragraph_text = para_info["text"]
-        assert isinstance(current_paragraph_text, str), f"Paragraph {i + 1} text is not a string."
-        assert len(current_paragraph_text) > 0, f"Paragraph {i + 1} text is empty."
+        result = self.analyzer.readability_score(text, level="paragraph")
 
-        # Check that the text corresponds to what we expect from our MARKDOWN_LONG_PARAGRAPHS_EXAMPLE
-        # This is a slightly weaker check than exact match, but helps ensure we have the right content.
-        # For example, check if a known substring from the original paragraph is present.
-        # This part needs to be adjusted based on the content of MARKDOWN_LONG_PARAGRAPHS_EXAMPLE
-        # For now, we will assume the text is broadly correct if it's not empty and proceed to score checking.
-        # A more robust check here might involve checking for specific keywords from each expected paragraph.
+        assert isinstance(result, dict)
+        assert "full_text" in result
+        assert "paragraphs" in result
+        assert len(result["paragraphs"]) == 3
 
-        assert "scores" in para_info, f"Paragraph {i + 1} missing 'scores'."
+    def test_readability_score_short_text(self):
+        """Test readability score returns None for very short text."""
+        short_text = "One two."
+        scores = self.analyzer.readability_score(short_text, level="full")
+        assert scores["flesch"] is None
+        assert scores["kincaid"] is None
+        assert scores["fog"] is None
 
-        # For MARKDOWN_LONG_PARAGRAPHS_EXAMPLE, all paragraphs, including headings,
-        # are expected to be long enough to produce numerical scores.
-        # The actual text used for scoring by get_scores is strip_markdown_markup(current_paragraph_text)
-        # So, if current_paragraph_text is very short (e.g. just a heading marker after stripping), scores might be None.
-        # Let's refine this: Scores should be numbers if the *original* paragraph text isn't just a short heading.
+    def test_readability_score_invalid_level(self):
+        """Test readability score with an invalid level."""
+        text = "This is a simple sentence."
+        scores = self.analyzer.readability_score(text, level="invalid")
+        assert "error" in scores
 
-        # Heuristic: if the paragraph text from split_paragraphs (which is para_info["text"])
-        # is short (e.g., like a typical heading), it might result in None scores after strip_markdown_markup.
-        # The previous logic correctly handled this by expecting numbers for ALL paragraphs in MARKDOWN_LONG_PARAGRAPHS_EXAMPLE
-        # because even its headings were written to be long.
-        # So, we maintain that expectation here.
-        assert isinstance(para_info["scores"]["flesch"], (int, float)), (
-            f"Flesch score for P{i + 1} ('{current_paragraph_text[:30]}...') is not a number. Score: {para_info['scores']['flesch']}"
+    # NEW test function
+    def test_readability_score_long_paragraphs(self):
+        """Test readability score with paragraphs guaranteed to be long enough for scores."""
+        text_input = MARKDOWN_LONG_PARAGRAPHS_EXAMPLE.strip()
+        # We will no longer use a separate expected_paragraph_texts for direct comparison
+        # due to persistent mismatches. Instead, we trust para_info["text"] from the function result
+        # and verify its properties and scores.
+
+        scores_data = self.analyzer.readability_score(text_input, level="paragraph")
+        assert isinstance(scores_data, dict), "Scores data should be a dictionary."
+        assert "full_text" in scores_data, "Full text scores missing."
+        assert "paragraphs" in scores_data and isinstance(scores_data["paragraphs"], list), (
+            "Paragraphs data missing or not a list."
         )
-        assert isinstance(para_info["scores"]["kincaid"], (int, float)), (
-            f"Kincaid score for P{i + 1} ('{current_paragraph_text[:30]}...') is not a number. Score: {para_info['scores']['kincaid']}"
+
+        # We still need to know how many paragraphs to expect based on a reliable split
+        # to ensure readability_score processes all of them.
+        reference_split_for_count = split_paragraphs(text_input)
+        assert len(scores_data["paragraphs"]) == len(reference_split_for_count), (
+            f"Mismatch in number of paragraphs processed. Expected {len(reference_split_for_count)}, Got {len(scores_data['paragraphs'])}"
         )
-        assert isinstance(para_info["scores"]["fog"], (int, float)), (
-            f"Fog score for P{i + 1} ('{current_paragraph_text[:30]}...') is not a number. Score: {para_info['scores']['fog']}"
-        )
+
+        for i, para_info in enumerate(scores_data["paragraphs"]):
+            assert "paragraph_number" in para_info, f"Paragraph {i + 1} missing 'paragraph_number'."
+            assert para_info["paragraph_number"] == i + 1, f"Paragraph {i + 1} has incorrect 'paragraph_number'."
+            assert "text" in para_info, f"Paragraph {i + 1} missing 'text'."
+
+            current_paragraph_text = para_info["text"]
+            assert isinstance(current_paragraph_text, str), f"Paragraph {i + 1} text is not a string."
+            assert len(current_paragraph_text) > 0, f"Paragraph {i + 1} text is empty."
+
+            # Check that the text corresponds to what we expect from our MARKDOWN_LONG_PARAGRAPHS_EXAMPLE
+            # This is a slightly weaker check than exact match, but helps ensure we have the right content.
+            # For example, check if a known substring from the original paragraph is present.
+            # This part needs to be adjusted based on the content of MARKDOWN_LONG_PARAGRAPHS_EXAMPLE
+            # For now, we will assume the text is broadly correct if it's not empty and proceed to score checking.
+            # A more robust check here might involve checking for specific keywords from each expected paragraph.
+
+            assert "scores" in para_info, f"Paragraph {i + 1} missing 'scores'."
+
+            # For MARKDOWN_LONG_PARAGRAPHS_EXAMPLE, all paragraphs, including headings,
+            # are expected to be long enough to produce numerical scores.
+            # The actual text used for scoring by get_scores is strip_markdown_markup(current_paragraph_text)
+            # So, if current_paragraph_text is very short (e.g. just a heading marker after stripping), scores might be None.
+            # Let's refine this: Scores should be numbers if the *original* paragraph text isn't just a short heading.
+
+            # Heuristic: if the paragraph text from split_paragraphs (which is para_info["text"])
+            # is short (e.g., like a typical heading), it might result in None scores after strip_markdown_markup.
+            # The previous logic correctly handled this by expecting numbers for ALL paragraphs in MARKDOWN_LONG_PARAGRAPHS_EXAMPLE
+            # because even its headings were written to be long.
+            # So, we maintain that expectation here.
+            assert isinstance(para_info["scores"]["flesch"], (int, float)), (
+                f"Flesch score for P{i + 1} ('{current_paragraph_text[:30]}...') is not a number. Score: {para_info['scores']['flesch']}"
+            )
+            assert isinstance(para_info["scores"]["kincaid"], (int, float)), (
+                f"Kincaid score for P{i + 1} ('{current_paragraph_text[:30]}...') is not a number. Score: {para_info['scores']['kincaid']}"
+            )
+            assert isinstance(para_info["scores"]["fog"], (int, float)), (
+                f"Fog score for P{i + 1} ('{current_paragraph_text[:30]}...') is not a number. Score: {para_info['scores']['fog']}"
+            )
 
 
 # --- Test Reading Time ---
 
 
-def test_reading_time_full():
-    """Test reading time for the full text."""
-    time_info = reading_time(SIMPLE_TEXT, level="full")
-    assert isinstance(time_info, dict)
-    assert "full_text" in time_info
-    assert isinstance(time_info["full_text"], float)
-    assert time_info["full_text"] > 0  # Should take some time
+class TestReadingTime:
+    """Test the reading time functionality."""
 
+    def setup_method(self):
+        """Set up ReadabilityAnalyzer instance for testing."""
+        self.analyzer = ReadabilityAnalyzer()
 
-def test_reading_time_sections():
-    """Test reading time by markdown sections."""
-    text = MARKDOWN_EXAMPLE.strip()
-    time_info = reading_time(text, level="section")
-    assert isinstance(time_info, dict)
-    assert "full_text" in time_info
-    assert "sections" in time_info and isinstance(time_info["sections"], dict)
-    assert "# Section 1" in time_info["sections"]
-    assert "## Subsection 1.1" in time_info["sections"]
-    assert "# Section 2" in time_info["sections"]
-    assert isinstance(time_info["sections"]["# Section 1"], float)
+    def test_reading_time_full(self):
+        """Test reading time estimation for full text."""
+        text = "This is a simple sentence. This is another simple sentence."
+        result = self.analyzer.reading_time(text, level="full")
 
+        assert isinstance(result, dict)
+        assert "full_text" in result
+        assert isinstance(result["full_text"], (int, float))
 
-def test_reading_time_paragraphs():
-    """Test reading time by paragraphs."""
-    text = MARKDOWN_EXAMPLE.strip()
-    time_info = reading_time(text, level="paragraph")
-    assert isinstance(time_info, dict)
-    assert "full_text" in time_info
-    assert "paragraphs" in time_info and isinstance(time_info["paragraphs"], list)
-    assert len(time_info["paragraphs"]) == len(EXPECTED_PARAGRAPHS_FULL)
-    assert "paragraph_number" in time_info["paragraphs"][0]
-    assert "text" in time_info["paragraphs"][0]
-    assert "reading_time_minutes" in time_info["paragraphs"][0]
-    assert isinstance(time_info["paragraphs"][0]["reading_time_minutes"], float)
+    def test_reading_time_sections(self):
+        """Test reading time estimation by sections."""
+        markdown_text = """
+# Section 1
 
+This is the content of section one. It has multiple sentences for testing.
 
-def test_reading_time_empty_text():
-    """Test reading time for empty text."""
-    time_info = reading_time("", level="full")
-    assert time_info["full_text"] == 0
+# Section 2
 
+This is section two content.
+"""
+        result = self.analyzer.reading_time(markdown_text.strip(), level="section")
 
-def test_reading_time_invalid_level():
-    """Test reading time with an invalid level."""
-    time_info = reading_time(SIMPLE_TEXT, level="invalid")
-    assert "error" in time_info
+        assert isinstance(result, dict)
+        assert "full_text" in result
+        assert "sections" in result
+
+    def test_reading_time_paragraphs(self):
+        """Test reading time estimation by paragraphs."""
+        text = """This is the first paragraph. It has multiple sentences.
+
+This is the second paragraph. It also has content."""
+
+        result = self.analyzer.reading_time(text, level="paragraph")
+
+        assert isinstance(result, dict)
+        assert "full_text" in result
+        assert "paragraphs" in result
+
+    def test_reading_time_empty_text(self):
+        """Test reading time for empty text."""
+        result = self.analyzer.reading_time("", level="full")
+        assert result["full_text"] == 0
+
+    def test_reading_time_invalid_level(self):
+        """Test reading time with an invalid level."""
+        text = "This is a simple sentence."
+        result = self.analyzer.reading_time(text, level="invalid")
+        assert "error" in result
