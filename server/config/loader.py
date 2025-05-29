@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 import yaml
 
-from .defaults import DEFAULT_CONFIG
+from server.config.defaults import DEFAULT_CONFIG
 
 logger = logging.getLogger(__name__)
 

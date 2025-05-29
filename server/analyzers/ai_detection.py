@@ -6,14 +6,14 @@ import statistics
 import numpy as np
 import torch
 
-from ..stylometry import (
+from server.stylometry import (
     BaselineManager,
     StylemetricAnalyzer,
     calculate_sentence_z_scores,
     calculate_z_scores,
     generate_flags,
 )
-from ..text_processing import split_into_sentences
+from server.text_processing import split_into_sentences
 
 logger = logging.getLogger(__name__)
 

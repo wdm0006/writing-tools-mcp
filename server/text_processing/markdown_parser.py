@@ -189,7 +189,7 @@ def parse_markdown_sections(text: str) -> Dict[str, Any]:
 
     # Final assembly into the desired output format: Render tokens to text
     # Add top-level paragraphs (split the original text)
-    from .sentence_splitter import split_paragraphs
+    from server.text_processing.sentence_splitter import split_paragraphs
 
     sections["paragraphs"] = split_paragraphs(text)
 

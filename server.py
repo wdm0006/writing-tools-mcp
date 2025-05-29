@@ -24,17 +24,17 @@ import torch
 from mcp.server.fastmcp import FastMCP
 
 # Analysis imports
-from .analyzers import initialize_analyzers
+from server.analyzers import initialize_analyzers
 
 # Configuration imports
-from .config import load_config
+from server.config import load_config
 
 # Model imports
-from .models import initialize_models
+from server.models import initialize_models
 
 # Text processing imports
-from .text_processing import initialize_preprocessor
-from .text_processing.sentence_splitter import initialize_sentence_splitter
+from server.text_processing import initialize_preprocessor
+from server.text_processing.sentence_splitter import initialize_sentence_splitter
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")

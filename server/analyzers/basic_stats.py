@@ -2,7 +2,7 @@
 
 from spellchecker import SpellChecker
 
-from ..text_processing import preprocess_text
+from server.text_processing import preprocess_text
 
 
 class BasicStatsAnalyzer:

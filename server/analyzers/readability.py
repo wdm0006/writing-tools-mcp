@@ -2,7 +2,7 @@
 
 import textstat
 
-from ..text_processing import parse_markdown_sections, split_paragraphs, strip_markdown_markup
+from server.text_processing import parse_markdown_sections, split_paragraphs, strip_markdown_markup
 
 
 class ReadabilityAnalyzer:

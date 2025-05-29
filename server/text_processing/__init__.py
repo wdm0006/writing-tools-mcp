@@ -1,8 +1,8 @@
 """Text processing utilities for preprocessing, markdown parsing, and sentence splitting."""
 
-from .markdown_parser import parse_markdown_sections, strip_markdown_markup
-from .preprocessor import TextPreprocessor, initialize_preprocessor, preprocess_text
-from .sentence_splitter import split_into_sentences, split_paragraphs
+from server.text_processing.markdown_parser import parse_markdown_sections, strip_markdown_markup
+from server.text_processing.preprocessor import TextPreprocessor, initialize_preprocessor, preprocess_text
+from server.text_processing.sentence_splitter import split_into_sentences, split_paragraphs
 
 __all__ = [
     # Classes

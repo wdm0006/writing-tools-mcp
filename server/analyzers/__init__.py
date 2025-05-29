@@ -1,10 +1,10 @@
 """Analysis modules for different text analysis domains."""
 
-from .ai_detection import AIDetectionAnalyzer
-from .basic_stats import BasicStatsAnalyzer
-from .keyword_analysis import KeywordAnalyzer
-from .readability import ReadabilityAnalyzer
-from .style_analysis import StyleAnalyzer
+from server.analyzers.ai_detection import AIDetectionAnalyzer
+from server.analyzers.basic_stats import BasicStatsAnalyzer
+from server.analyzers.keyword_analysis import KeywordAnalyzer
+from server.analyzers.readability import ReadabilityAnalyzer
+from server.analyzers.style_analysis import StyleAnalyzer
 
 __all__ = [
     # Classes
