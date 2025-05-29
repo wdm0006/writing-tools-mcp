@@ -1,4 +1,4 @@
-from server.server import strip_markdown_markup
+from server.text_processing import strip_markdown_markup
 
 
 def test_plain_text():

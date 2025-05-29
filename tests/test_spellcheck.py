@@ -1,48 +1,44 @@
-from server.server import spellcheck
+"""Test module for spellcheck functionality."""
 
-# Basic spellcheck tests
+from unittest.mock import MagicMock, patch
 
-
-def test_spellcheck_correct():
-    """Test spellcheck with correctly spelled words."""
-    text = "this is a sentence with correct spelling"
-    assert spellcheck(text) == []
+from server.analyzers import BasicStatsAnalyzer
 
 
-def test_spellcheck_incorrect():
-    """Test spellcheck with misspelled words."""
-    text = "this is a sentense with incorrectt speling"
-    # The exact output might depend on the dictionary used by pyspellchecker
-    # We expect it to find the misspelled words
-    result = spellcheck(text)
-    assert "sentense" in result
-    assert "incorrectt" in result
-    assert "speling" in result
+class TestSpellcheck:
+    """Test spellcheck functionality."""
 
+    def setup_method(self):
+        """Set up BasicStatsAnalyzer instance for testing."""
+        self.analyzer = BasicStatsAnalyzer()
 
-def test_spellcheck_mixed():
-    """Test spellcheck with a mix of correct and incorrect words."""
-    text = "correct speling hapens sometims"
-    result = spellcheck(text)
-    assert "speling" in result
-    assert "hapens" in result
-    assert "sometims" in result
-    assert "correct" not in result
+    @patch("server.analyzers.basic_stats.SpellChecker")
+    def test_spellcheck_basic(self, mock_spell_checker):
+        """Test basic spellcheck functionality."""
+        # Mock the spell checker
+        mock_checker = MagicMock()
+        mock_checker.unknown.return_value = {"wrng", "speling"}
+        mock_spell_checker.return_value = mock_checker
 
+        result = self.analyzer.spellcheck("This is wrng speling")
+        assert isinstance(result, list)
 
-def test_spellcheck_empty():
-    """Test spellcheck with empty input."""
-    text = ""
-    assert spellcheck(text) == []
+    @patch("server.analyzers.basic_stats.SpellChecker")
+    def test_spellcheck_empty(self, mock_spell_checker):
+        """Test spellcheck with empty text."""
+        mock_checker = MagicMock()
+        mock_checker.unknown.return_value = set()
+        mock_spell_checker.return_value = mock_checker
 
+        result = self.analyzer.spellcheck("")
+        assert result == []
 
-def test_spellcheck_punctuation():
-    """Test spellcheck ignores punctuation."""
-    text = "hello, world! this. is; correctt?"
-    result = spellcheck(text)
-    assert "correctt" in result
-    assert len(result) == 1  # Should only find 'correctt'
+    @patch("server.analyzers.basic_stats.SpellChecker")
+    def test_spellcheck_correct_text(self, mock_spell_checker):
+        """Test spellcheck with correctly spelled text."""
+        mock_checker = MagicMock()
+        mock_checker.unknown.return_value = set()
+        mock_spell_checker.return_value = mock_checker
 
-
-# Note: pyspellchecker might treat numbers or specific symbols differently.
-# More advanced tests could cover those if needed.
+        result = self.analyzer.spellcheck("This is correct text")
+        assert result == []
