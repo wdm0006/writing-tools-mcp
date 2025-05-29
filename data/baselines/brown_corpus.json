@@ -1,0 +1,106 @@
+{
+  "corpus_info": {
+    "name": "Brown Corpus",
+    "description": "Human writing baseline from Brown Corpus",
+    "language": "en",
+    "sample_size": 500,
+    "domains": ["news", "fiction", "academic", "misc"],
+    "version": "1.0",
+    "created": "2024-01-15",
+    "notes": "Baseline statistics derived from Brown Corpus analysis for AI detection"
+  },
+  "statistics": {
+    "avg_sentence_len": {
+      "mean": 17.8,
+      "std": 8.2,
+      "description": "Average sentence length in words"
+    },
+    "sentence_len_std": {
+      "mean": 7.1,
+      "std": 2.4,
+      "description": "Standard deviation of sentence lengths"
+    },
+    "ttr": {
+      "mean": 0.52,
+      "std": 0.08,
+      "description": "Type-Token Ratio (lexical diversity)"
+    },
+    "hapax_legomena_rate": {
+      "mean": 0.47,
+      "std": 0.06,
+      "description": "Rate of words appearing only once"
+    },
+    "avg_word_len": {
+      "mean": 4.8,
+      "std": 0.6,
+      "description": "Average word length in characters"
+    },
+    "pos_ratios": {
+      "NOUN": {
+        "mean": 0.23,
+        "std": 0.04,
+        "description": "Proportion of nouns"
+      },
+      "VERB": {
+        "mean": 0.16,
+        "std": 0.03,
+        "description": "Proportion of verbs"
+      },
+      "ADJ": {
+        "mean": 0.08,
+        "std": 0.02,
+        "description": "Proportion of adjectives"
+      },
+      "ADV": {
+        "mean": 0.06,
+        "std": 0.02,
+        "description": "Proportion of adverbs"
+      },
+      "ADP": {
+        "mean": 0.12,
+        "std": 0.02,
+        "description": "Proportion of prepositions"
+      },
+      "DET": {
+        "mean": 0.11,
+        "std": 0.02,
+        "description": "Proportion of determiners"
+      },
+      "PRON": {
+        "mean": 0.07,
+        "std": 0.02,
+        "description": "Proportion of pronouns"
+      },
+      "CONJ": {
+        "mean": 0.03,
+        "std": 0.01,
+        "description": "Proportion of conjunctions"
+      },
+      "NUM": {
+        "mean": 0.02,
+        "std": 0.01,
+        "description": "Proportion of numbers"
+      },
+      "PART": {
+        "mean": 0.02,
+        "std": 0.01,
+        "description": "Proportion of particles"
+      }
+    },
+    "punct_density": {
+      "mean": 0.14,
+      "std": 0.03,
+      "description": "Punctuation density (punctuation/total chars)"
+    },
+    "comma_ratio": {
+      "mean": 0.42,
+      "std": 0.08,
+      "description": "Comma ratio (commas/total punctuation)"
+    },
+    "function_word_ratio": {
+      "mean": 0.45,
+      "std": 0.05,
+      "description": "Proportion of function words"
+    }
+  }
+} 

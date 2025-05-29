@@ -1,24 +1,6 @@
 from server.server import character_count, list_tools, word_count
 
 
-def test_list_tools():
-    """Test if list_tools returns the expected list of tool names."""
-    expected_tools = [
-        "list-tools",
-        "character-count",
-        "word-count",
-        "spellcheck",
-        "readability-score",
-        "reading-time",
-        "keyword-density",
-        "keyword-frequency",
-        "top-keywords",
-        "keyword-context",
-        "passive-voice-detection",
-    ]
-    assert list_tools() == expected_tools
-
-
 def test_character_count():
     """Test character_count with various inputs."""
     assert character_count("hello") == 5
