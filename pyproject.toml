@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "writing-tools-mcp"
 version = "0.1.0"
-description = "MCP server with a PySide GUI for text analysis tools."
+description = "MCP server for advanced text analysis, optimized for Claude Desktop."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -19,7 +19,6 @@ dependencies = [
     "textstat",
     "spacy",
     "markdown-it-py",
-    "Pyside6",
     "requests",
     "transformers>=4.35.0",
     "torch>=2.0.0",
@@ -31,6 +30,10 @@ dependencies = [
 dev = [
     "ruff",
     "pytest",
+]
+# Deprecated GUI - use Claude Desktop instead
+gui = [
+    "Pyside6",
 ]
 
 [project.urls]
@@ -47,4 +50,7 @@ ignore = ["E501", "C901"]
 quote-style = "double"
 
 [tool.hatch.build.targets.wheel]
-packages = ["app", "server"]
+packages = ["server"]
+
+[project.scripts]
+writing-tools-mcp = "server:main"

@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "writing-tools-mcp",
+  "display_name": "Writing Tools",
+  "version": "0.1.0",
+  "description": "MCP server providing advanced text analysis tools including readability scores, keyword analysis, AI detection, and stylometric analysis",
+  "long_description": "This MCP server provides comprehensive writing analysis tools designed to help improve text quality and detect AI-generated content. Features include:\n\n- **Basic Statistics**: Character count, word count, spell checking\n- **Readability Analysis**: Flesch Reading Ease, Flesch-Kincaid Grade, Gunning Fog Index at document, section, and paragraph levels\n- **Keyword Analysis**: Keyword density, frequency, top keywords extraction, and context-aware keyword search\n- **Style Analysis**: Passive voice detection using advanced NLP\n- **AI Detection**: Perplexity analysis using GPT-2 and stylometric feature analysis with statistical baselines\n\nPerfect for writers, editors, researchers, and anyone looking to analyze and improve their writing.",
+  "author": {
+    "name": "Will McGinnis",
+    "email": "will@mcginniscommawill.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/wdm0006/writing-tools-mcp",
+  "icon": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%E2%9C%8D%EF%B8%8F%3C/text%3E%3C/svg%3E",
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "python": ">=3.10"
+    }
+  },
+  "server": {
+    "type": "python",
+    "entry_point": "server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "${__dirname}",
+        "run",
+        "server.py"
+      ],
+      "env": {}
+    }
+  },
+  "tools_generated": true,
+  "prompts_generated": false,
+  "resources_generated": false
+}

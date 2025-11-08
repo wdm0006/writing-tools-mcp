@@ -1,8 +1,18 @@
+"""
+DEPRECATED: This PySide6 GUI application is deprecated.
+
+Please use Claude Desktop with MCP bundle support instead.
+This GUI will be removed in a future version.
+
+For installation instructions, see README.md
+"""
+
 import asyncio
 import logging
 import os
 import sys
 import threading
+import warnings
 
 import uvicorn
 from mcp import ClientSession
@@ -13,10 +23,19 @@ from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
     QWidget,
+)
+
+# Show deprecation warning
+warnings.warn(
+    "The PySide6 GUI is deprecated and will be removed in a future version. "
+    "Please use Claude Desktop with MCP bundle support instead.",
+    DeprecationWarning,
+    stacklevel=2
 )
 
 # Configure root logger first thing
@@ -319,6 +338,23 @@ class MainWindow(QMainWindow):
         if len(logging.getLogger().handlers) > 1:
             logging.getLogger().handlers = [handler]
         self.logger.info("MainWindow: Initialized and ready.")
+
+        # Show deprecation warning dialog
+        self._show_deprecation_warning()
+
+    def _show_deprecation_warning(self):
+        """Show a deprecation warning to users"""
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setWindowTitle("Deprecation Warning")
+        msg_box.setText("This GUI is deprecated")
+        msg_box.setInformativeText(
+            "The PySide6 GUI application is deprecated and will be removed in a future version.\n\n"
+            "Please use Claude Desktop with MCP bundle support instead for a better experience.\n\n"
+            "See the README.md for installation instructions."
+        )
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.exec()
 
     @Slot(str)
     def append_log(self, message: str):

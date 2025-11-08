@@ -1,10 +1,8 @@
 # Writing Tools MCP Server
 
-This is a Model Context Protocol (MCP) server designed to provide various text analysis tools, assisting users in improving their writing. It can be integrated with AI assistants like Claude or development environments like Cursor to analyze text directly within your workflow.
+This is a Model Context Protocol (MCP) server designed to provide various text analysis tools, assisting users in improving their writing. It is **optimized for Claude Desktop** with one-click installation via MCP bundles, and also works with other MCP-compatible tools like Cursor and Windsurf.
 
 MCP servers act as a secure bridge or interface, enabling AI models and language assistants to interact with local applications, tools, or data on a user's machine. This server leverages that protocol to offer its specialized writing-specific analysis capabilities to connected AI clients.
-
-![Experimental App](./images/screenshot.png)
 
 ## Features
 
@@ -26,56 +24,69 @@ This server provides the following text analysis tools:
 
 ## Installation
 
-This server is packaged as a Python script with embedded dependency management using `/// script`.
+### Option 1: Claude Desktop (Recommended)
 
-1.  **Prerequisites**:
-    *   Python 3.10 or higher.
-    *   `uv` (pip will work also but highly recommend `uv`.
+**Coming Soon**: Install with one click in Claude Desktop using the `.mcpb` bundle format.
 
-2.  **Dependencies**: The script automatically handles dependencies if you run it correctly. The required libraries are:
-    *   `mcp[cli]`
-    *   `pyspellchecker`
-    *   `textstat`
-    *   `spacy` (and its `en_core_web_sm` model)
-    *   `transformers` (for GPT-2 model in perplexity analysis)
-    *   `torch` (for neural network computations)
-    *   `pyyaml` (for configuration management)
-    *   `numpy` (for numerical computations)
+For now, you can manually add to Claude Desktop's config:
 
-3.  **Running the Server**:
-
-Most tools take a json configuration for MCPs, which for you will look something like:
+1. Open Claude Desktop settings
+2. Edit the MCP servers configuration
+3. Add the following:
 
 ```json
 {
   "mcpServers": {
     "writingtools": {
       "command": "uv",
-            "args": [
-                "--directory",
-                "/path/to/this/repo/writing-tools-mcp",
-                "run",
-                "server.py"
-            ]
+      "args": [
+        "--directory",
+        "/path/to/this/repo/writing-tools-mcp",
+        "run",
+        "server.py"
+      ]
     }
   }
 }
-
 ```
 
-## App
+### Option 2: Other MCP Clients (Cursor, Windsurf, etc.)
 
-We also have an experimental PySide app, aiming to actually package it as an app with Nuitka. It runs the server locally and exposes it as an SSE MCP on localhost. If you're running it (`make run-gui`), you can then connect to tools like cursor with the URL instead:
+This server is packaged as a Python script with embedded dependency management using `/// script`.
+
+**Prerequisites**:
+- Python 3.10 or higher
+- `uv` (highly recommended) or `pip`
+
+**Configuration** for most MCP clients:
 
 ```json
 {
-    "mcpServers": {
-        "writtingtools-sse": {
-            "url": "http://localhost:8001/sse"
-        }
+  "mcpServers": {
+    "writingtools": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/this/repo/writing-tools-mcp",
+        "run",
+        "server.py"
+      ]
     }
+  }
 }
 ```
+
+The script automatically handles dependencies. Required libraries include:
+- `mcp[cli]`
+- `pyspellchecker`, `textstat`, `spacy`
+- `transformers>=4.35.0`, `torch>=2.0.0`
+- `pyyaml>=6.0`, `numpy>=1.24.0`
+
+## Deprecated: Standalone GUI
+
+> **⚠️ DEPRECATED**: The PySide6 GUI app is deprecated in favor of Claude Desktop integration. It will be removed in a future version.
+>
+> If you still need the GUI for development, install with: `uv pip install -e ".[gui]"` and run with `make run-gui`.
 
 ## Usage Examples
 
