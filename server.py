@@ -39,11 +39,7 @@ from server.text_processing.sentence_splitter import initialize_sentence_splitte
 
 logger = logging.getLogger(__name__)
 # Explicitly configure logging to use stderr to avoid breaking MCP JSON-RPC protocol on stdout
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    stream=sys.stderr
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", stream=sys.stderr)
 logger.debug("Starting server.py initialization")
 
 mcp = FastMCP("Writing Tools MCP Server")
