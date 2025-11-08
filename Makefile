@@ -1,11 +1,12 @@
 # Makefile for Writing Tools MCP Server Development
 
-.PHONY: install lint format test clean all
+.PHONY: install lint format test clean all build-mcpb run-server
 
 # Variables
 VENV_DIR = .venv
 PYTHON = $(VENV_DIR)/bin/python
 UV = uv
+BUNDLE_NAME = writing-tools-mcp.mcpb
 
 # Default target: Run common development tasks
 all: install test lint
@@ -35,19 +36,21 @@ test: install
 	$(UV) run pytest tests/
 
 # Run the MCP server
-run-server: install
+run-server:
 	@echo "--- Running MCP server (server.py)... ---"
-	$(UV) run python -m server.server
+	$(UV) run server.py
 
-# Run the PySide GUI
-run-gui: install
-	@echo "--- Running PySide GUI (app/main.py)... ---"
-	$(UV) run python app/main.py
+# Build the MCPB bundle for Claude Desktop
+build-mcpb:
+	@echo "--- Building MCPB bundle for Claude Desktop... ---"
+	@bash scripts/build_mcpb.sh
 
 # Clean up the virtual environment and cache files
 clean:
 	@echo "--- Cleaning up project... ---"
 	rm -rf $(VENV_DIR)
+	rm -rf build/
+	rm -f $(BUNDLE_NAME)
 	find . -type f -name '*.py[co]' -delete
 	find . -type d -name '__pycache__' -exec rm -rf {} +
 	@echo "--- Clean complete. ---" 
