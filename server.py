@@ -18,6 +18,7 @@
 
 import logging
 import statistics
+import sys
 
 import numpy as np
 import torch
@@ -37,7 +38,8 @@ from server.text_processing import initialize_preprocessor
 from server.text_processing.sentence_splitter import initialize_sentence_splitter
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+# Explicitly configure logging to use stderr to avoid breaking MCP JSON-RPC protocol on stdout
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", stream=sys.stderr)
 logger.debug("Starting server.py initialization")
 
 mcp = FastMCP("Writing Tools MCP Server")

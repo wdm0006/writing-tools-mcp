@@ -25,6 +25,7 @@
     "mcp_config": {
       "command": "uv",
       "args": [
+        "--quiet",
         "--directory",
         "${__dirname}",
         "run",

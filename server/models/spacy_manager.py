@@ -1,6 +1,8 @@
 """spaCy model management."""
 
 import logging
+import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 
 import spacy
@@ -34,5 +36,7 @@ class SpacyManager:
             logger.info("Downloading spaCy English model, this may take a while...")
             from spacy.cli import download
 
-            download(self.model_name)
+            # Redirect stdout to stderr to avoid breaking MCP JSON-RPC protocol
+            with redirect_stdout(sys.stderr):
+                download(self.model_name)
             return spacy.load(self.model_name)
