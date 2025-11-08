@@ -31,10 +31,6 @@ dev = [
     "ruff",
     "pytest",
 ]
-# Deprecated GUI - use Claude Desktop instead
-gui = [
-    "Pyside6",
-]
 
 [project.urls]
 "Homepage" = "https://github.com/wdm0006/writing-tools-mcp" 

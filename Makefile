@@ -1,6 +1,6 @@
 # Makefile for Writing Tools MCP Server Development
 
-.PHONY: install lint format test clean all build-mcpb run-server run-gui
+.PHONY: install lint format test clean all build-mcpb run-server
 
 # Variables
 VENV_DIR = .venv
@@ -44,13 +44,6 @@ run-server:
 build-mcpb:
 	@echo "--- Building MCPB bundle for Claude Desktop... ---"
 	@bash scripts/build_mcpb.sh
-
-# Run the PySide GUI (DEPRECATED)
-run-gui: install
-	@echo "--- WARNING: The GUI is deprecated. Use Claude Desktop instead. ---"
-	@echo "--- Running PySide GUI (app/main.py)... ---"
-	$(UV) pip install -e ".[gui]"
-	$(UV) run python app/main.py
 
 # Clean up the virtual environment and cache files
 clean:

@@ -82,11 +82,15 @@ The script automatically handles dependencies. Required libraries include:
 - `transformers>=4.35.0`, `torch>=2.0.0`
 - `pyyaml>=6.0`, `numpy>=1.24.0`
 
-## Deprecated: Standalone GUI
+## Building the Bundle
 
-> **⚠️ DEPRECATED**: The PySide6 GUI app is deprecated in favor of Claude Desktop integration. It will be removed in a future version.
->
-> If you still need the GUI for development, install with: `uv pip install -e ".[gui]"` and run with `make run-gui`.
+To create a `.mcpb` bundle for distribution:
+
+```bash
+make build-mcpb
+```
+
+This creates `writing-tools-mcp.mcpb` which can be installed in Claude Desktop.
 
 ## Usage Examples
 
