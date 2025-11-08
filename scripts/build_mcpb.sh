@@ -50,9 +50,9 @@ fi
 
 # Create the bundle (zip file with .mcpb extension)
 echo "Creating bundle archive..."
-cd build
-zip -r "../$BUNDLE_NAME" mcpb/
-cd ..
+cd build/mcpb
+zip -r "../../$BUNDLE_NAME" .
+cd ../..
 
 echo ""
 echo "✅ Bundle created successfully: $BUNDLE_NAME"
