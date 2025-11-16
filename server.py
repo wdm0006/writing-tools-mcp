@@ -44,18 +44,29 @@ logger.debug("Starting server.py initialization")
 
 mcp = FastMCP("Writing Tools MCP Server")
 
-# Initialize configuration and models
+# Initialize configuration and model managers (lazy loading)
 config = load_config()
-models = initialize_models(config)
-nlp = models["spacy"]
-gpt2_manager = models["gpt2"]
+model_managers = initialize_models(config)
+spacy_manager = model_managers["spacy"]
+gpt2_manager = model_managers["gpt2"]
 
-# Initialize text processing modules
-initialize_preprocessor(nlp)
-initialize_sentence_splitter(nlp)
+# Analyzers will be initialized lazily on first use
+_analyzers = None
 
-# Initialize analyzers
-analyzers = initialize_analyzers(nlp, gpt2_manager, config)
+
+def get_analyzers():
+    """Lazily initialize and return analyzers."""
+    global _analyzers
+    if _analyzers is None:
+        # Load spaCy model only when first needed
+        nlp = spacy_manager.get_model()
+        # Initialize text processing modules
+        initialize_preprocessor(nlp)
+        initialize_sentence_splitter(nlp)
+        # Initialize analyzers
+        _analyzers = initialize_analyzers(nlp, gpt2_manager, config)
+        logger.info("Analyzers initialized on first use (lazy loading)")
+    return _analyzers
 
 
 def get_perplexity_model():
@@ -97,7 +108,7 @@ def character_count(text: str) -> int:
     Returns:
         int: The total character count of the input text.
     """
-    return analyzers["basic_stats"].character_count(text)
+    return get_analyzers()["basic_stats"].character_count(text)
 
 
 @mcp.tool()
@@ -110,7 +121,7 @@ def word_count(text: str) -> int:
     Returns:
         int: The total word count of the input text.
     """
-    return analyzers["basic_stats"].word_count(text)
+    return get_analyzers()["basic_stats"].word_count(text)
 
 
 @mcp.tool()
@@ -126,7 +137,7 @@ def spellcheck(text: str):
     Returns:
         list[str]: A list of words from the input text identified as potentially misspelled.
     """
-    return analyzers["basic_stats"].spellcheck(text)
+    return get_analyzers()["basic_stats"].spellcheck(text)
 
 
 @mcp.tool()
@@ -150,7 +161,7 @@ def readability_score(text: str, level: str = "full") -> dict:
               - If `level` is "paragraph": `{"full_text": {...}, "paragraphs": [{"paragraph_number": int, "text": str, "scores": {...}}, ...]}`
               - If `level` is invalid: `{"error": str}`
     """
-    return analyzers["readability"].readability_score(text, level)
+    return get_analyzers()["readability"].readability_score(text, level)
 
 
 @mcp.tool()
@@ -173,7 +184,7 @@ def reading_time(text: str, level: str = "full") -> dict:
               - If `level` is "paragraph": `{"full_text": float, "paragraphs": [{"paragraph_number": int, "text": str, "reading_time_minutes": float}, ...]}`
               - If `level` is invalid: `{"error": str}`
     """
-    return analyzers["readability"].reading_time(text, level)
+    return get_analyzers()["readability"].reading_time(text, level)
 
 
 @mcp.tool()
@@ -191,7 +202,7 @@ def keyword_density(text: str, keyword: str) -> float:
     Returns:
         float: The density of the keyword as a percentage. Returns 0 if the text is empty.
     """
-    return analyzers["keyword"].keyword_density(text, keyword)
+    return get_analyzers()["keyword"].keyword_density(text, keyword)
 
 
 @mcp.tool()
@@ -208,7 +219,7 @@ def keyword_frequency(text: str, remove_stopwords: bool = True) -> dict:
         dict: A dictionary where keys are the words (or lemmas if lemmatization is enabled
               in `preprocess_text`) and values are their corresponding frequency counts.
     """
-    return analyzers["keyword"].keyword_frequency(text, remove_stopwords)
+    return get_analyzers()["keyword"].keyword_frequency(text, remove_stopwords)
 
 
 @mcp.tool()
@@ -225,7 +236,7 @@ def top_keywords(text: str, top_n: int = 10, remove_stopwords: bool = True) -> l
         list[tuple[str, int]]: A list of tuples, where each tuple contains a keyword (str)
                                and its frequency count (int), sorted in descending order of frequency.
     """
-    return analyzers["keyword"].top_keywords(text, top_n, remove_stopwords)
+    return get_analyzers()["keyword"].top_keywords(text, top_n, remove_stopwords)
 
 
 @mcp.tool()
@@ -242,7 +253,7 @@ def keyword_context(text: str, keyword: str) -> list:
     Returns:
         list[str]: A list of sentences from the text that contain the specified keyword or its lemma.
     """
-    return analyzers["keyword"].keyword_context(text, keyword)
+    return get_analyzers()["keyword"].keyword_context(text, keyword)
 
 
 @mcp.tool()
@@ -259,7 +270,7 @@ def passive_voice_detection(text: str) -> list:
     Returns:
         list[str]: A list of sentences from the text identified as potentially containing passive voice.
     """
-    return analyzers["style"].passive_voice_detection(text)
+    return get_analyzers()["style"].passive_voice_detection(text)
 
 
 def _chunk_text(text, tokenizer, max_length=512, overlap=50):
@@ -383,7 +394,7 @@ def perplexity_analysis(text: str, language: str = "en") -> dict:
         dict: Analysis results including document perplexity, burstiness,
               sentence-level scores, and AI detection flags
     """
-    return analyzers["ai_detection"].perplexity_analysis(text, language)
+    return get_analyzers()["ai_detection"].perplexity_analysis(text, language)
 
 
 @mcp.tool()
@@ -403,7 +414,7 @@ def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: st
     Returns:
         dict: Stylometric analysis with features, z-scores, and AI detection flags
     """
-    return analyzers["ai_detection"].stylometric_analysis(text, baseline, language)
+    return get_analyzers()["ai_detection"].stylometric_analysis(text, baseline, language)
 
 
 def main():

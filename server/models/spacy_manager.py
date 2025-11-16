@@ -11,16 +11,19 @@ logger = logging.getLogger(__name__)
 
 
 class SpacyManager:
-    """Manages spaCy model loading and initialization."""
+    """Manages spaCy model loading and initialization with lazy loading."""
 
     def __init__(self, model_name: str = "en_core_web_sm"):
         self.model_name = model_name
         self._model = None
+        logger.info(f"SpacyManager initialized (model will be loaded on first use)")
 
     def get_model(self):
-        """Get or load the spaCy model."""
+        """Get or load the spaCy model (lazy loading)."""
         if self._model is None:
+            logger.info("Loading spaCy model on first use...")
             self._model = self._load_model()
+            logger.info("spaCy model loaded successfully")
         return self._model
 
     def _load_model(self):
