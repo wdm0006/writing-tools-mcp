@@ -25,6 +25,15 @@ class SpacyManager:
             self._model = self._load_model()
             logger.info("spaCy model loaded successfully")
         return self._model
+    
+    def unload_model(self):
+        """Unload the spaCy model to free memory."""
+        if self._model is not None:
+            logger.info("Releasing spaCy model memory...")
+            self._model = None
+            import gc
+            gc.collect()
+            logger.info("spaCy model memory released")
 
     def _load_model(self):
         """Load the spaCy model with fallback strategies."""

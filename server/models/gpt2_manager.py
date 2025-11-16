@@ -21,6 +21,23 @@ class GPT2Manager:
         if self._model is None or self._tokenizer is None:
             self._load_model()
         return self._model, self._tokenizer, self.config
+    
+    def unload_model(self):
+        """Unload the GPT-2 model to free memory."""
+        if self._model is not None or self._tokenizer is not None:
+            logger.info("Releasing GPT-2 model memory...")
+            self._model = None
+            self._tokenizer = None
+            # Clear CUDA cache if available
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception:
+                pass
+            import gc
+            gc.collect()
+            logger.info("GPT-2 model memory released")
 
     def _load_model(self):
         """Load the GPT-2 model and tokenizer."""

@@ -16,6 +16,7 @@
 # ]
 # ///
 
+import functools
 import logging
 import statistics
 import sys
@@ -69,6 +70,30 @@ def get_analyzers():
     return _analyzers
 
 
+def cleanup_models():
+    """Release all model memory immediately after use."""
+    global _analyzers
+    # Unload models
+    spacy_manager.unload_model()
+    gpt2_manager.unload_model()
+    # Clear analyzers to force re-initialization on next use
+    _analyzers = None
+    logger.info("All models released from memory")
+
+
+def auto_cleanup(func):
+    """Decorator to automatically cleanup models after tool execution."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            result = func(*args, **kwargs)
+            return result
+        finally:
+            # Always cleanup, even if there's an exception
+            cleanup_models()
+    return wrapper
+
+
 def get_perplexity_model():
     """Load and cache GPT-2 model and tokenizer for perplexity analysis"""
     return gpt2_manager.get_model_and_tokenizer()
@@ -99,6 +124,7 @@ def list_tools():
 
 
 @mcp.tool()
+@auto_cleanup
 def character_count(text: str) -> int:
     """Calculates the total number of characters in the provided text.
 
@@ -112,6 +138,7 @@ def character_count(text: str) -> int:
 
 
 @mcp.tool()
+@auto_cleanup
 def word_count(text: str) -> int:
     """Calculates the total number of words in the provided text, splitting by whitespace.
 
@@ -125,6 +152,7 @@ def word_count(text: str) -> int:
 
 
 @mcp.tool()
+@auto_cleanup
 def spellcheck(text: str):
     """Identifies potentially misspelled words in the input text using pyspellchecker.
 
@@ -141,6 +169,7 @@ def spellcheck(text: str):
 
 
 @mcp.tool()
+@auto_cleanup
 def readability_score(text: str, level: str = "full") -> dict:
     """
     Calculates various readability scores (Flesch Reading Ease, Flesch-Kincaid Grade Level,
@@ -165,6 +194,7 @@ def readability_score(text: str, level: str = "full") -> dict:
 
 
 @mcp.tool()
+@auto_cleanup
 def reading_time(text: str, level: str = "full") -> dict:
     """
     Estimates the reading time for the input text using textstat. The estimation
@@ -188,6 +218,7 @@ def reading_time(text: str, level: str = "full") -> dict:
 
 
 @mcp.tool()
+@auto_cleanup
 def keyword_density(text: str, keyword: str) -> float:
     """Calculates the density of a specific keyword within the text.
 
@@ -206,6 +237,7 @@ def keyword_density(text: str, keyword: str) -> float:
 
 
 @mcp.tool()
+@auto_cleanup
 def keyword_frequency(text: str, remove_stopwords: bool = True) -> dict:
     """
     Counts the frequency of each word (or lemma) in the provided text.
@@ -223,6 +255,7 @@ def keyword_frequency(text: str, remove_stopwords: bool = True) -> dict:
 
 
 @mcp.tool()
+@auto_cleanup
 def top_keywords(text: str, top_n: int = 10, remove_stopwords: bool = True) -> list:
     """
     Identifies the most frequently occurring keywords (words or lemmas) in the text.
@@ -240,6 +273,7 @@ def top_keywords(text: str, top_n: int = 10, remove_stopwords: bool = True) -> l
 
 
 @mcp.tool()
+@auto_cleanup
 def keyword_context(text: str, keyword: str) -> list:
     """Extracts sentences from the text that contain a specific keyword or its lemma.
 
@@ -257,6 +291,7 @@ def keyword_context(text: str, keyword: str) -> list:
 
 
 @mcp.tool()
+@auto_cleanup
 def passive_voice_detection(text: str) -> list:
     """
     Detects sentences potentially written in passive voice using a simplified rule-based approach with spaCy.
@@ -378,6 +413,7 @@ def _calculate_burstiness(sentence_perplexities):
 
 
 @mcp.tool()
+@auto_cleanup
 def perplexity_analysis(text: str, language: str = "en") -> dict:
     """
     Analyze text for perplexity and burstiness to detect AI-generated content.
@@ -398,6 +434,7 @@ def perplexity_analysis(text: str, language: str = "en") -> dict:
 
 
 @mcp.tool()
+@auto_cleanup
 def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: str = "en") -> dict:
     """
     Analyze text for stylometric features and detect AI-generated content.
