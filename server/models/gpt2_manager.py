@@ -8,15 +8,16 @@ logger = logging.getLogger(__name__)
 
 
 class GPT2Manager:
-    """Manages GPT-2 model loading and caching."""
+    """Manages GPT-2 model loading and caching with lazy loading."""
 
     def __init__(self, config: dict):
         self.config = config
         self._model = None
         self._tokenizer = None
+        logger.info("GPT2Manager initialized (model will be loaded on first use)")
 
     def get_model_and_tokenizer(self):
-        """Get or load the GPT-2 model and tokenizer."""
+        """Get or load the GPT-2 model and tokenizer (lazy loading)."""
         if self._model is None or self._tokenizer is None:
             self._load_model()
         return self._model, self._tokenizer, self.config
