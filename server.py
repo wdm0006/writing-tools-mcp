@@ -3,7 +3,7 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #   "pip",
-#   "mcp[cli]",
+#   "fastmcp>=2.14.0,<3.0.0",
 #   "pyspellchecker",
 #   "textstat",
 #   "spacy",
@@ -22,7 +22,7 @@ import sys
 
 import numpy as np
 import torch
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 # Analysis imports
 from server.analyzers import initialize_analyzers
