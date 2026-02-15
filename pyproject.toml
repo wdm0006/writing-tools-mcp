@@ -30,6 +30,7 @@ dependencies = [
 dev = [
     "ruff",
     "pytest",
+    "pre-commit",
 ]
 
 [project.urls]
@@ -47,8 +48,8 @@ ignore = ["E501", "C901"]
 [tool.ruff.format]
 quote-style = "double"
 
-[tool.hatch.build.targets.wheel]
-packages = ["server"]
+[tool.hatch.build]
+only-include = ["server.py"]
 
 [project.scripts]
 writing-tools-mcp = "server:main"

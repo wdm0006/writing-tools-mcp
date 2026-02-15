@@ -22,65 +22,31 @@ This server provides the following text analysis tools:
 *   **`perplexity-analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2.
 *   **`stylometric-analysis`**: Analyze stylometric features (sentence length, lexical diversity, POS ratios) for AI detection.
 
-## Installation
+## Install
 
-### Option 1: Claude Desktop (Recommended)
+```bash
+# Run directly from GitHub (no install needed)
+uvx --from git+https://github.com/wdm0006/writing-tools-mcp writing-tools-mcp
 
-**Coming Soon**: Install with one click in Claude Desktop using the `.mcpb` bundle format.
+# Or install from source
+git clone https://github.com/wdm0006/writing-tools-mcp
+cd writing-tools-mcp
+uv sync
+uv run server.py
+```
 
-For now, you can manually add to Claude Desktop's config:
-
-1. Open Claude Desktop settings
-2. Edit the MCP servers configuration
-3. Add the following:
+## MCP Client Configuration
 
 ```json
 {
   "mcpServers": {
     "writingtools": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/path/to/this/repo/writing-tools-mcp",
-        "run",
-        "server.py"
-      ]
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/wdm0006/writing-tools-mcp", "writing-tools-mcp"]
     }
   }
 }
 ```
-
-### Option 2: Other MCP Clients (Cursor, Windsurf, etc.)
-
-This server is packaged as a Python script with embedded dependency management using `/// script`.
-
-**Prerequisites**:
-- Python 3.10 or higher
-- `uv` (highly recommended) or `pip`
-
-**Configuration** for most MCP clients:
-
-```json
-{
-  "mcpServers": {
-    "writingtools": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/path/to/this/repo/writing-tools-mcp",
-        "run",
-        "server.py"
-      ]
-    }
-  }
-}
-```
-
-The script automatically handles dependencies. Required libraries include:
-- `mcp[cli]`
-- `pyspellchecker`, `textstat`, `spacy`
-- `transformers>=4.35.0`, `torch>=2.0.0`
-- `pyyaml>=6.0`, `numpy>=1.24.0`
 
 ## Building the Bundle
 

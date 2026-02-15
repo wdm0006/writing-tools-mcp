@@ -406,6 +406,11 @@ def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: st
     return analyzers["ai_detection"].stylometric_analysis(text, baseline, language)
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for the Writing Tools MCP server."""
     logging.info("Starting MCP server...")
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()
