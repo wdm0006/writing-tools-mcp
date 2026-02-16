@@ -23,8 +23,9 @@ def models(config):
 
 @pytest.fixture(scope="session")
 def nlp(models):
-    """Get spaCy NLP model."""
-    return models["spacy"]
+    """Get spaCy NLP model from manager."""
+    spacy_manager = models["spacy"]
+    return spacy_manager.get_model()
 
 
 @pytest.fixture(scope="session")

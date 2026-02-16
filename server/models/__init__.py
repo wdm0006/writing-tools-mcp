@@ -10,11 +10,12 @@ __all__ = [
 
 
 def initialize_models(config):
-    """Initialize model managers with configuration."""
+    """Initialize model managers with configuration (lazy loading)."""
     spacy_config = config.get("spacy", {})
     gpt2_config = config.get("gpt2", {})
 
     spacy_manager = SpacyManager(model_name=spacy_config.get("model_name", "en_core_web_sm"))
     gpt2_manager = GPT2Manager(gpt2_config)
 
-    return {"spacy": spacy_manager.get_model(), "gpt2": gpt2_manager}
+    # Return managers instead of loaded models for lazy loading
+    return {"spacy": spacy_manager, "gpt2": gpt2_manager}
