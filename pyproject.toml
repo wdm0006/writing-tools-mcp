@@ -24,7 +24,6 @@ dependencies = [
     "torch>=2.0.0",
     "pyyaml>=6.0",
     "numpy>=1.24.0",
-    "en-core-web-sm",
 ]
 
 [project.optional-dependencies]
@@ -51,14 +50,6 @@ quote-style = "double"
 
 [tool.hatch.build]
 only-include = ["server.py"]
-
-[tool.uv.sources]
-en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
-
-[dependency-groups]
-dev = [
-    "pytest>=8.3.5",
-]
 
 [project.scripts]
 writing-tools-mcp = "server:main"

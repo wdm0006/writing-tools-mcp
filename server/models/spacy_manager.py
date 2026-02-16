@@ -16,7 +16,7 @@ class SpacyManager:
     def __init__(self, model_name: str = "en_core_web_sm"):
         self.model_name = model_name
         self._model = None
-        logger.info(f"SpacyManager initialized (model will be loaded on first use)")
+        logger.info("SpacyManager initialized (model will be loaded on first use)")
 
     def get_model(self):
         """Get or load the spaCy model (lazy loading)."""
@@ -25,13 +25,14 @@ class SpacyManager:
             self._model = self._load_model()
             logger.info("spaCy model loaded successfully")
         return self._model
-    
+
     def unload_model(self):
         """Unload the spaCy model to free memory."""
         if self._model is not None:
             logger.info("Releasing spaCy model memory...")
             self._model = None
             import gc
+
             gc.collect()
             logger.info("spaCy model memory released")
 
