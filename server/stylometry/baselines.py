@@ -75,7 +75,7 @@ class BaselineManager:
             Path to the baseline file or None if not found
         """
         # Check in data/baselines directory
-        data_dir = Path(__file__).parent.parent.parent / "data" / "baselines"
+        data_dir = Path(__file__).parent.parent / "data" / "baselines"
         baseline_file = data_dir / f"{baseline_name}.json"
 
         if baseline_file.exists():
@@ -153,12 +153,12 @@ class BaselineManager:
         try:
             if custom:
                 # Save to custom baselines directory
-                data_dir = Path(__file__).parent.parent.parent / "data" / "baselines" / "custom_baselines"
+                data_dir = Path(__file__).parent.parent / "data" / "baselines" / "custom_baselines"
                 data_dir.mkdir(parents=True, exist_ok=True)
                 baseline_path = data_dir / f"{baseline_name}.json"
             else:
                 # Save to main baselines directory
-                data_dir = Path(__file__).parent.parent.parent / "data" / "baselines"
+                data_dir = Path(__file__).parent.parent / "data" / "baselines"
                 data_dir.mkdir(parents=True, exist_ok=True)
                 baseline_path = data_dir / f"{baseline_name}.json"
 
@@ -191,7 +191,7 @@ class BaselineManager:
                 available[name] = "Custom baseline"
 
         # Check for file-based baselines
-        data_dir = Path(__file__).parent.parent.parent / "data" / "baselines"
+        data_dir = Path(__file__).parent.parent / "data" / "baselines"
         if data_dir.exists():
             for baseline_file in data_dir.glob("*.json"):
                 name = baseline_file.stem

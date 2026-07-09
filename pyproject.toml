@@ -48,8 +48,8 @@ ignore = ["E501", "C901"]
 [tool.ruff.format]
 quote-style = "double"
 
-[tool.hatch.build]
-only-include = ["server.py"]
+[tool.hatch.build.targets.wheel]
+packages = ["server"]
 
 [project.scripts]
-writing-tools-mcp = "server:main"
+writing-tools-mcp = "server.app:main"

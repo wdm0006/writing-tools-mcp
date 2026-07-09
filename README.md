@@ -32,7 +32,7 @@ uvx --from git+https://github.com/wdm0006/writing-tools-mcp writing-tools-mcp
 git clone https://github.com/wdm0006/writing-tools-mcp
 cd writing-tools-mcp
 uv sync
-uv run server.py
+uv run run_server.py
 ```
 
 ## MCP Client Configuration

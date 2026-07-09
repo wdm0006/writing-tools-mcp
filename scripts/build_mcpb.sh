@@ -24,21 +24,15 @@ mkdir -p "$BUILD_DIR"
 echo "Copying manifest.json..."
 cp manifest.json "$BUILD_DIR/"
 
-# Copy server code
+# Copy server code (server/ includes the bundled data/ baselines)
 echo "Copying server files..."
-cp server.py "$BUILD_DIR/"
+cp run_server.py "$BUILD_DIR/"
 cp -r server "$BUILD_DIR/"
 
 # Copy configuration
 echo "Copying configuration..."
 if [ -f ".mcp-config.yaml" ]; then
     cp .mcp-config.yaml "$BUILD_DIR/"
-fi
-
-# Copy data (stylometry baselines)
-echo "Copying data files..."
-if [ -d "data" ]; then
-    cp -r data "$BUILD_DIR/"
 fi
 
 # Copy README and LICENSE
