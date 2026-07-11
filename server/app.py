@@ -1,20 +1,10 @@
-#!/usr/bin/env python3
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#   "pip",
-#   "fastmcp>=2.14.0,<3.0.0",
-#   "pyspellchecker",
-#   "textstat",
-#   "spacy",
-#   "markdown-it-py",
-#   "requests",
-#   "transformers>=4.35.0",
-#   "torch>=2.0.0",
-#   "pyyaml>=6.0",
-#   "numpy>=1.24.0"
-# ]
-# ///
+"""Writing Tools MCP server — FastMCP tool layer and entry point.
+
+This module owns the FastMCP instance, the ``@mcp.tool`` wrappers, and ``main()``.
+It lives inside the ``server`` package so it no longer collides with the package
+name, which is what makes the console script (``server.app:main``) and the built
+wheel work.
+"""
 
 import functools
 import logging
@@ -41,7 +31,7 @@ from server.text_processing.sentence_splitter import initialize_sentence_splitte
 logger = logging.getLogger(__name__)
 # Explicitly configure logging to use stderr to avoid breaking MCP JSON-RPC protocol on stdout
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", stream=sys.stderr)
-logger.debug("Starting server.py initialization")
+logger.debug("Starting server.app initialization")
 
 mcp = FastMCP("Writing Tools MCP Server")
 

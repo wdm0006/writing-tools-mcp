@@ -53,6 +53,6 @@ jobs:
       - name: Run tests
         run: uv run pytest tests/ -v
 
-      - name: Test server imports
+      - name: Test entry point resolves
         run: |
-          uv run python -c "import server; print('Server imports successfully')"
+          uv run python -c "import importlib.util; spec = importlib.util.find_spec('server.app'); assert spec and spec.origin and spec.origin.endswith('app.py'), spec; from server.app import main; assert callable(main); print('Entry point server.app:main resolves')"
