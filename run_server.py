@@ -12,7 +12,8 @@
 #   "transformers>=4.35.0",
 #   "torch>=2.0.0",
 #   "pyyaml>=6.0",
-#   "numpy>=1.24.0"
+#   "numpy>=1.24.0",
+#   "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
 # ]
 # ///
 """Standalone launcher for the Writing Tools MCP server.
