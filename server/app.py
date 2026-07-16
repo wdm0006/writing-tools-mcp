@@ -8,11 +8,8 @@ wheel work.
 
 import functools
 import logging
-import statistics
 import sys
 
-import numpy as np
-import torch
 from fastmcp import FastMCP
 
 # Analysis imports
@@ -90,11 +87,6 @@ def auto_cleanup(*model_names):
         return wrapper
 
     return decorator
-
-
-def get_perplexity_model():
-    """Load and cache GPT-2 model and tokenizer for perplexity analysis"""
-    return gpt2_manager.get_model_and_tokenizer()
 
 
 @mcp.tool()
@@ -304,110 +296,6 @@ def passive_voice_detection(text: str) -> list:
         list[str]: A list of sentences from the text identified as potentially containing passive voice.
     """
     return get_analyzers()["style"].passive_voice_detection(text)
-
-
-def _chunk_text(text, tokenizer, max_length=512, overlap=50):
-    """
-    Split text into overlapping chunks for processing long texts.
-
-    Args:
-        text (str): Input text to chunk
-        tokenizer: GPT-2 tokenizer
-        max_length (int): Maximum tokens per chunk
-        overlap (int): Number of overlapping tokens between chunks
-
-    Returns:
-        list: List of text chunks
-    """
-    # Tokenize the full text
-    tokens = tokenizer.encode(text, add_special_tokens=False)
-
-    if len(tokens) <= max_length:
-        return [text]
-
-    # Ensure overlap is not larger than max_length to prevent infinite loops
-    overlap = min(overlap, max_length - 1)
-
-    chunks = []
-    start = 0
-
-    while start < len(tokens):
-        end = min(start + max_length, len(tokens))
-        chunk_tokens = tokens[start:end]
-        chunk_text = tokenizer.decode(chunk_tokens, clean_up_tokenization_spaces=True)
-        chunks.append(chunk_text)
-
-        # Move to next chunk with overlap
-        next_start = end - overlap
-
-        # Ensure we always advance to prevent infinite loops
-        if next_start <= start:
-            next_start = start + 1
-
-        start = next_start
-
-        # Safety check to prevent infinite loops
-        if len(chunks) > 100:  # Reasonable upper limit
-            break
-
-    return chunks
-
-
-def _calculate_perplexity(text, model, tokenizer):
-    """
-    Calculate perplexity for a given text using GPT-2.
-
-    Args:
-        text (str): Input text
-        model: GPT-2 model
-        tokenizer: GPT-2 tokenizer
-
-    Returns:
-        float: Perplexity score
-    """
-    if not text.strip():
-        return float("inf")
-
-    try:
-        # Tokenize input
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=1024)
-        input_ids = inputs.input_ids
-
-        # Calculate loss
-        with torch.no_grad():
-            outputs = model(input_ids, labels=input_ids)
-            loss = outputs.loss.item()
-
-        # Calculate perplexity from loss
-        perplexity = torch.exp(torch.tensor(loss)).item()
-
-        return perplexity
-
-    except Exception as e:
-        logger.warning(f"Error calculating perplexity for text: {e}")
-        return float("inf")
-
-
-def _calculate_burstiness(sentence_perplexities):
-    """
-    Calculate burstiness as the standard deviation of sentence perplexities.
-
-    Args:
-        sentence_perplexities (list): List of perplexity scores for sentences
-
-    Returns:
-        float: Burstiness score (standard deviation)
-    """
-    if len(sentence_perplexities) < 2:
-        return 0.0
-
-    # Filter out infinite values
-    valid_perplexities = [p for p in sentence_perplexities if not np.isinf(p)]
-
-    if len(valid_perplexities) < 2:
-        return 0.0
-
-    return statistics.stdev(valid_perplexities)
 
 
 @mcp.tool()
