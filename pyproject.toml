@@ -24,6 +24,8 @@ dependencies = [
     "torch>=2.0.0",
     "pyyaml>=6.0",
     "numpy>=1.24.0",
+    # Direct URL ref; would need to become an optional extra if ever published to PyPI.
+    "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
 ]
 
 [project.optional-dependencies]
@@ -47,6 +49,9 @@ ignore = ["E501", "C901"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["server"]
