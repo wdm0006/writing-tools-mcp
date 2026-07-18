@@ -11,6 +11,10 @@ on:
       - develop
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -28,9 +32,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Verify uv installation
         run: uv --version
