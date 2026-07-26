@@ -7,10 +7,59 @@ baseline statistics for comparing stylometric features against human writing.
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+BASELINES_DIR = Path(__file__).parent.parent / "data" / "baselines"
+CUSTOM_BASELINES_SUBDIR = "custom_baselines"
+
+_SAFE_BASELINE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _validate_baseline_name(baseline_name: str) -> str:
+    """
+    Validate that a baseline name is a plain identifier, not a path.
+
+    Args:
+        baseline_name: Name of the baseline
+
+    Returns:
+        The validated baseline name
+
+    Raises:
+        ValueError: If the name is empty, contains path separators, parent
+            references, or any other character outside the allowed set
+    """
+    if not isinstance(baseline_name, str) or not _SAFE_BASELINE_NAME.match(baseline_name) or ".." in baseline_name:
+        raise ValueError(
+            f"Invalid baseline name {baseline_name!r}: baseline names must contain only letters, digits, "
+            "'.', '_' or '-', and may not contain path separators or parent directory references"
+        )
+    return baseline_name
+
+
+def _resolve_baseline_file(directory: Path, baseline_name: str) -> Optional[Path]:
+    """
+    Resolve ``<directory>/<baseline_name>.json`` and confirm it stays inside ``directory``.
+
+    Args:
+        directory: Approved baseline directory
+        baseline_name: Already-validated baseline name
+
+    Returns:
+        The resolved path, or None if it would escape the approved directory
+    """
+    approved_dir = directory.resolve()
+    candidate = (approved_dir / f"{baseline_name}.json").resolve()
+
+    if not candidate.is_relative_to(approved_dir) or candidate == approved_dir:
+        logger.error(f"Rejected baseline path outside approved directory: {candidate}")
+        return None
+
+    return candidate
 
 
 class BaselineManager:
@@ -44,8 +93,10 @@ class BaselineManager:
             Dictionary containing baseline statistics
 
         Raises:
-            ValueError: If baseline is not found
+            ValueError: If the name is not a valid baseline identifier, or the baseline is not found
         """
+        _validate_baseline_name(baseline_name)
+
         if baseline_name in self.baselines:
             return self.baselines[baseline_name]
 
@@ -73,20 +124,16 @@ class BaselineManager:
 
         Returns:
             Path to the baseline file or None if not found
+
+        Raises:
+            ValueError: If the name is not a valid baseline identifier
         """
-        # Check in data/baselines directory
-        data_dir = Path(__file__).parent.parent / "data" / "baselines"
-        baseline_file = data_dir / f"{baseline_name}.json"
+        _validate_baseline_name(baseline_name)
 
-        if baseline_file.exists():
-            return baseline_file
-
-        # Check in custom baselines directory
-        custom_dir = data_dir / "custom_baselines"
-        custom_file = custom_dir / f"{baseline_name}.json"
-
-        if custom_file.exists():
-            return custom_file
+        for directory in (BASELINES_DIR, BASELINES_DIR / CUSTOM_BASELINES_SUBDIR):
+            baseline_file = _resolve_baseline_file(directory, baseline_name)
+            if baseline_file is not None and baseline_file.is_file():
+                return baseline_file
 
         return None
 
@@ -149,18 +196,19 @@ class BaselineManager:
 
         Returns:
             True if saved successfully, False otherwise
+
+        Raises:
+            ValueError: If the name is not a valid baseline identifier
         """
+        _validate_baseline_name(baseline_name)
+
+        data_dir = BASELINES_DIR / CUSTOM_BASELINES_SUBDIR if custom else BASELINES_DIR
+
         try:
-            if custom:
-                # Save to custom baselines directory
-                data_dir = Path(__file__).parent.parent / "data" / "baselines" / "custom_baselines"
-                data_dir.mkdir(parents=True, exist_ok=True)
-                baseline_path = data_dir / f"{baseline_name}.json"
-            else:
-                # Save to main baselines directory
-                data_dir = Path(__file__).parent.parent / "data" / "baselines"
-                data_dir.mkdir(parents=True, exist_ok=True)
-                baseline_path = data_dir / f"{baseline_name}.json"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            baseline_path = _resolve_baseline_file(data_dir, baseline_name)
+            if baseline_path is None:
+                raise ValueError(f"Refusing to write baseline outside of {data_dir}")
 
             with open(baseline_path, "w", encoding="utf-8") as f:
                 json.dump(baseline_data, f, indent=2, ensure_ascii=False)
@@ -191,7 +239,7 @@ class BaselineManager:
                 available[name] = "Custom baseline"
 
         # Check for file-based baselines
-        data_dir = Path(__file__).parent.parent / "data" / "baselines"
+        data_dir = BASELINES_DIR
         if data_dir.exists():
             for baseline_file in data_dir.glob("*.json"):
                 name = baseline_file.stem
@@ -199,7 +247,7 @@ class BaselineManager:
                     available[name] = "File-based baseline"
 
         # Check custom baselines directory
-        custom_dir = data_dir / "custom_baselines"
+        custom_dir = data_dir / CUSTOM_BASELINES_SUBDIR
         if custom_dir.exists():
             for baseline_file in custom_dir.glob("*.json"):
                 name = baseline_file.stem

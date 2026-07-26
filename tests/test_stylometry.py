@@ -5,6 +5,8 @@ This module tests the StylemetricAnalyzer, BaselineManager, statistical function
 and the integrated stylometric_analysis tool.
 """
 
+import json
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,6 +20,7 @@ from server.stylometry import (
     flag_outliers,
     generate_flags,
 )
+from server.stylometry import baselines as baselines_module
 
 # Test data
 SAMPLE_HUMAN_TEXT = """
@@ -242,6 +245,136 @@ class TestBaselineManager:
 
         assert "brown_corpus" in baselines
         assert isinstance(baselines["brown_corpus"], str)
+
+
+class TestBaselineNameSafety:
+    """Test that baseline names are treated as identifiers rather than paths."""
+
+    @pytest.fixture
+    def baselines_dir(self, tmp_path, monkeypatch):
+        """Point BaselineManager at a temporary baseline directory tree."""
+        data_dir = tmp_path / "data" / "baselines"
+        (data_dir / "custom_baselines").mkdir(parents=True)
+        monkeypatch.setattr(baselines_module, "BASELINES_DIR", data_dir)
+        return data_dir
+
+    @pytest.fixture
+    def external_file(self, tmp_path):
+        """A readable JSON file outside every approved baseline directory."""
+        external = tmp_path / "outside" / "secret.json"
+        external.parent.mkdir(parents=True)
+        external.write_text(json.dumps({"statistics": {"secret": True}}), encoding="utf-8")
+        return external
+
+    def test_builtin_baseline_unchanged(self):
+        """The in-memory brown_corpus baseline still loads."""
+        manager = BaselineManager()
+        assert manager.load_baseline("brown_corpus")["corpus_info"]["name"] == "Brown Corpus"
+
+    def test_file_backed_builtin_baseline_loads(self, baselines_dir):
+        """A JSON file in the built-in baseline directory loads by name."""
+        (baselines_dir / "news_corpus.json").write_text(json.dumps(SAMPLE_BASELINE), encoding="utf-8")
+
+        manager = BaselineManager()
+        assert manager.load_baseline("news_corpus") == SAMPLE_BASELINE
+
+    def test_custom_baseline_loads(self, baselines_dir):
+        """A JSON file in the custom baseline directory loads by name."""
+        custom_path = baselines_dir / "custom_baselines" / "my_corpus-v1.0.json"
+        custom_path.write_text(json.dumps(SAMPLE_BASELINE), encoding="utf-8")
+
+        manager = BaselineManager()
+        assert manager.load_baseline("my_corpus-v1.0") == SAMPLE_BASELINE
+
+    @pytest.mark.parametrize(
+        "baseline_name",
+        [
+            "/etc/passwd",
+            "/tmp/external",
+            "../secret",
+            "..",
+            "custom_baselines/../../secret",
+            "custom_baselines/my_corpus",
+            "sub\\corpus",
+            "",
+            ".hidden",
+            "corpus\x00",
+        ],
+    )
+    def test_load_baseline_rejects_unsafe_names(self, baselines_dir, baseline_name):
+        """Absolute paths, traversal, and separators are rejected with a clear error."""
+        manager = BaselineManager()
+
+        with pytest.raises(ValueError, match="Invalid baseline name"):
+            manager.load_baseline(baseline_name)
+
+        with pytest.raises(ValueError, match="Invalid baseline name"):
+            manager._get_baseline_path(baseline_name)
+
+    def test_external_file_cannot_be_loaded(self, baselines_dir, external_file):
+        """A crafted name cannot read a JSON file outside the approved directories."""
+        manager = BaselineManager()
+        absolute_name = str(external_file)[: -len(".json")]
+        relative_name = os.path.relpath(external_file, baselines_dir)[: -len(".json")]
+
+        for crafted in (absolute_name, relative_name):
+            with pytest.raises(ValueError, match="Invalid baseline name"):
+                manager.load_baseline(crafted)
+            assert crafted not in manager.baselines
+
+    def test_symlink_out_of_baseline_dir_is_rejected(self, baselines_dir, external_file):
+        """A symlinked baseline resolving outside the approved directory is not loaded."""
+        (baselines_dir / "linked.json").symlink_to(external_file)
+
+        manager = BaselineManager()
+        with pytest.raises(ValueError, match="not found"):
+            manager.load_baseline("linked")
+
+    def test_missing_valid_name_still_reports_not_found(self, baselines_dir):
+        """A well-formed but unknown baseline keeps the original not-found error."""
+        manager = BaselineManager()
+
+        with pytest.raises(ValueError, match="not found"):
+            manager.load_baseline("no_such_baseline")
+
+    def test_get_baseline_info_returns_none_for_unsafe_name(self, baselines_dir, external_file):
+        """get_baseline_info swallows the validation error rather than raising."""
+        manager = BaselineManager()
+        assert manager.get_baseline_info(str(external_file)[: -len(".json")]) is None
+
+    def test_save_baseline_rejects_unsafe_names(self, baselines_dir, external_file):
+        """A crafted name cannot overwrite a file outside the approved directories."""
+        manager = BaselineManager()
+        original = external_file.read_text(encoding="utf-8")
+
+        for crafted in (
+            str(external_file)[: -len(".json")],
+            os.path.relpath(external_file, baselines_dir / "custom_baselines")[: -len(".json")],
+            "../escaped",
+        ):
+            with pytest.raises(ValueError, match="Invalid baseline name"):
+                manager.save_baseline(crafted, SAMPLE_BASELINE)
+
+        assert external_file.read_text(encoding="utf-8") == original
+        assert not (baselines_dir.parent.parent / "escaped.json").exists()
+
+    def test_save_baseline_writes_inside_custom_dir(self, baselines_dir):
+        """Valid names still round-trip through the custom baseline directory."""
+        manager = BaselineManager()
+
+        assert manager.save_baseline("my_corpus-v1.0", SAMPLE_BASELINE) is True
+        assert (baselines_dir / "custom_baselines" / "my_corpus-v1.0.json").is_file()
+        assert BaselineManager().load_baseline("my_corpus-v1.0") == SAMPLE_BASELINE
+
+    def test_stylometric_analysis_reports_unsafe_baseline(self, baselines_dir, external_file):
+        """The MCP-facing analyzer returns a structured error for a crafted baseline."""
+        analyzer = AIDetectionAnalyzer(MagicMock(), MagicMock(), {})
+
+        result = analyzer.stylometric_analysis("Some text to analyze.", baseline=str(external_file)[: -len(".json")])
+
+        assert "Invalid baseline name" in result["error"]
+        assert result["features"] == {}
+        assert result["flags"]["high_ai_probability"] is False
 
 
 class TestStatisticalFunctions:
