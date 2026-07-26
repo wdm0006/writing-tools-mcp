@@ -2973,6 +2973,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "packaging" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "ruff" },
@@ -2985,6 +2986,7 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=2.14.0,<3.0.0" },
     { name = "markdown-it-py" },
     { name = "numpy", specifier = ">=1.24.0" },
+    { name = "packaging", marker = "extra == 'dev'" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pyspellchecker" },
     { name = "pytest", marker = "extra == 'dev'" },

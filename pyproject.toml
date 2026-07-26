@@ -30,6 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "packaging",
     "ruff",
     "pytest",
     "pre-commit",
