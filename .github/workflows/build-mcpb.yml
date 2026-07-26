@@ -51,7 +51,7 @@ jobs:
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             VERSION=${GITHUB_REF#refs/tags/v}
           else
-            VERSION=$(grep -Po '(?<=version = ")[^"]*' pyproject.toml)
+            VERSION=$(uv run --no-project python scripts/get_version.py)
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
