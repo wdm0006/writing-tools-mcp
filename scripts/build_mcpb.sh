@@ -9,7 +9,7 @@ echo "Building Writing Tools MCP Bundle..."
 # Configuration
 BUILD_DIR="build/mcpb"
 BUNDLE_NAME="writing-tools-mcp.mcpb"
-VERSION=$(grep -Po '(?<=version = ")[^"]*' pyproject.toml)
+VERSION=$(uv run --no-project python scripts/get_version.py)
 
 # Clean previous build
 echo "Cleaning previous build..."
