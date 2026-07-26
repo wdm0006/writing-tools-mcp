@@ -2973,9 +2973,11 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "packaging" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 
 [package.metadata]
@@ -2984,6 +2986,7 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=2.14.0,<3.0.0" },
     { name = "markdown-it-py" },
     { name = "numpy", specifier = ">=1.24.0" },
+    { name = "packaging", marker = "extra == 'dev'" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pyspellchecker" },
     { name = "pytest", marker = "extra == 'dev'" },
@@ -2992,6 +2995,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "spacy" },
     { name = "textstat" },
+    { name = "tomli", marker = "python_full_version < '3.11' and extra == 'dev'" },
     { name = "torch", specifier = ">=2.0.0" },
     { name = "transformers", specifier = ">=4.35.0" },
 ]

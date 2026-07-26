@@ -2,7 +2,6 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#   "pip",
 #   "fastmcp>=2.14.0,<3.0.0",
 #   "pyspellchecker",
 #   "textstat",
