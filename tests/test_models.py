@@ -1,8 +1,10 @@
 """Test module for model management."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
-from server.models import GPT2Manager, SpacyManager
+from server.analyzers import AIDetectionAnalyzer
+from server.config import load_config
+from server.models import GPT2Manager, SpacyManager, initialize_models
 
 
 class TestSpacyManager:
@@ -74,3 +76,64 @@ class TestGPT2Manager:
         assert model == mock_model_instance
         assert tokenizer == mock_tokenizer_instance
         assert returned_config == config
+
+
+DISTINCTIVE_PERPLEXITY_CONFIG = {
+    "model_name": "distilgpt2",
+    "max_length": 128,
+    "overlap": 7,
+    "thresholds": {"ppl_max": 12.5, "burstiness_min": 4.0},
+    "device": "cpu",
+    "language": "en",
+}
+
+
+class TestInitializeModels:
+    """Test that initialize_models wires configuration through to the managers."""
+
+    def test_gpt2_manager_receives_perplexity_section(self):
+        """The GPT-2 manager is configured from the documented 'perplexity' section."""
+        config = {"perplexity": DISTINCTIVE_PERPLEXITY_CONFIG, "stylometry": {}, "logging": {}}
+
+        gpt2_manager = initialize_models(config)["gpt2"]
+
+        assert gpt2_manager.config == DISTINCTIVE_PERPLEXITY_CONFIG
+        assert gpt2_manager.config["model_name"] == "distilgpt2"
+        assert gpt2_manager.config["max_length"] == 128
+        assert gpt2_manager.config["overlap"] == 7
+        assert gpt2_manager.config["thresholds"] == {"ppl_max": 12.5, "burstiness_min": 4.0}
+
+    def test_loaded_config_supplies_keys_the_analysis_path_indexes(self):
+        """Defaults loaded from disk reach the manager with every key perplexity analysis indexes."""
+        gpt2_manager = initialize_models(load_config())["gpt2"]
+
+        for key in ("model_name", "max_length", "overlap", "thresholds"):
+            assert key in gpt2_manager.config
+        for threshold in ("ppl_max", "burstiness_min"):
+            assert threshold in gpt2_manager.config["thresholds"]
+
+    @patch("server.analyzers.ai_detection.split_into_sentences")
+    def test_perplexity_analysis_uses_the_wired_configuration(self, mock_split):
+        """A full perplexity analysis succeeds and reports the configured model and thresholds."""
+        mock_split.return_value = ["A configured sentence.", "Another configured sentence."]
+
+        config = {"perplexity": DISTINCTIVE_PERPLEXITY_CONFIG, "stylometry": {}, "logging": {}}
+        gpt2_manager = initialize_models(config)["gpt2"]
+
+        # Populate the lazy cache directly so no real GPT-2 weights are fetched.
+        gpt2_manager._model = Mock()
+        gpt2_manager._tokenizer = Mock()
+        gpt2_manager._tokenizer.encode.return_value = [1, 2, 3]
+
+        analyzer = AIDetectionAnalyzer(Mock(), gpt2_manager, config)
+        with patch.object(AIDetectionAnalyzer, "_calculate_perplexity", side_effect=[8.0, 9.0]):
+            result = analyzer.perplexity_analysis("A configured sentence. Another configured sentence.")
+
+        assert "error" not in result
+        assert result["config"] == {
+            "model": "distilgpt2",
+            "thresholds": {"ppl_max": 12.5, "burstiness_min": 4.0},
+        }
+        assert result["doc_ppl"] == 8.5
+        # doc_ppl 8.5 < ppl_max 12.5 and burstiness 0.71 < burstiness_min 4.0
+        assert result["flags"]["high_ai_probability"] is True
