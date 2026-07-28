@@ -97,19 +97,19 @@ def list_tools():
         list[str]: A list containing the names of all registered MCP tools.
     """
     return [
-        "list-tools",
-        "character-count",
-        "word-count",
+        "list_tools",
+        "character_count",
+        "word_count",
         "spellcheck",
-        "readability-score",
-        "reading-time",
-        "keyword-density",
-        "keyword-frequency",
-        "top-keywords",
-        "keyword-context",
-        "passive-voice-detection",
-        "perplexity-analysis",
-        "stylometric-analysis",
+        "readability_score",
+        "reading_time",
+        "keyword_density",
+        "keyword_frequency",
+        "top_keywords",
+        "keyword_context",
+        "passive_voice_detection",
+        "perplexity_analysis",
+        "stylometric_analysis",
     ]
 
 
