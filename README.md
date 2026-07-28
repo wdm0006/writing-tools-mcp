@@ -8,19 +8,19 @@ MCP servers act as a secure bridge or interface, enabling AI models and language
 
 This server provides the following text analysis tools:
 
-*   **`list-tools`**: List all available tools in this server.
-*   **`character-count`**: Return the number of characters in the input text.
-*   **`word-count`**: Return the number of words in the input text.
+*   **`list_tools`**: List all available tools in this server.
+*   **`character_count`**: Return the number of characters in the input text.
+*   **`word_count`**: Return the number of words in the input text.
 *   **`spellcheck`**: Return a list of misspelled words in the input text.
-*   **`readability-score`**: Return readability scores (Flesch, Kincaid, Fog) for the text, section, or paragraph level.
-*   **`reading-time`**: Return the estimated reading time for the text, section, or paragraph level.
-*   **`keyword-density`**: Calculate the density of a given keyword in the text.
-*   **`keyword-frequency`**: Count how often each keyword appears in the text (optionally removing stopwords).
-*   **`top-keywords`**: Identify the most frequently used keywords in the text.
-*   **`keyword-context`**: Extract sentences or phrases where a specific keyword appears.
-*   **`passive-voice-detection`**: Detect passive voice constructions in the text.
-*   **`perplexity-analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2.
-*   **`stylometric-analysis`**: Analyze stylometric features (sentence length, lexical diversity, POS ratios) for AI detection.
+*   **`readability_score`**: Return readability scores (Flesch, Kincaid, Fog) for the text, section, or paragraph level.
+*   **`reading_time`**: Return the estimated reading time for the text, section, or paragraph level.
+*   **`keyword_density`**: Calculate the density of a given keyword in the text.
+*   **`keyword_frequency`**: Count how often each keyword appears in the text (optionally removing stopwords).
+*   **`top_keywords`**: Identify the most frequently used keywords in the text.
+*   **`keyword_context`**: Extract sentences or phrases where a specific keyword appears.
+*   **`passive_voice_detection`**: Detect passive voice constructions in the text.
+*   **`perplexity_analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2.
+*   **`stylometric_analysis`**: Analyze stylometric features (sentence length, lexical diversity, POS ratios) for AI detection.
 
 ## Install
 
@@ -64,8 +64,8 @@ You can configure any MCP client (like Claude.ai, Windsurf, or Cursor) to connec
 
 **General Analysis:**
 
-*   "List the available writing tools." (Calls `list-tools`)
-*   "Analyze the text below for readability using the standard scores." (Provide text, calls `readability-score`)
+*   "List the available writing tools." (Calls `list_tools`)
+*   "Analyze the text below for readability using the standard scores." (Provide text, calls `readability_score`)
 *   "Check this document for spelling mistakes." (Provide text, calls `spellcheck`)
 *   "How long would it take someone to read this blog post?" (Provide text, calls `reading_time`)
 
@@ -78,15 +78,15 @@ You can configure any MCP client (like Claude.ai, Windsurf, or Cursor) to connec
 
 **Style and Structure:**
 
-*   "Identify any sentences using passive voice in my draft." (Provide text, calls `passive-voice-detection`)
+*   "Identify any sentences using passive voice in my draft." (Provide text, calls `passive_voice_detection`)
 *   "What's the word count for this paragraph?" (Provide text, calls `word_count`)
-*   "Get the readability scores for each section of this document." (Provide markdown text, calls `readability-score` with `level="section"`)
+*   "Get the readability scores for each section of this document." (Provide markdown text, calls `readability_score` with `level="section"`)
 
 **AI Detection:**
 
-*   "Analyze this text for signs of AI generation using perplexity analysis." (Provide text, calls `perplexity-analysis`)
-*   "Check if this essay was written by AI using stylometric analysis." (Provide text, calls `stylometric-analysis`)
-*   "Compare the writing style of this text against human writing baselines." (Provide text, calls `stylometric-analysis`)
+*   "Analyze this text for signs of AI generation using perplexity analysis." (Provide text, calls `perplexity_analysis`)
+*   "Check if this essay was written by AI using stylometric analysis." (Provide text, calls `stylometric_analysis`)
+*   "Compare the writing style of this text against human writing baselines." (Provide text, calls `stylometric_analysis`)
 *   "Is this text too uniform in sentence structure to be human-written?" (Provide text, calls both AI detection tools)
 
 ## Tool Reference
@@ -95,7 +95,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`list-tools`**
+**`list_tools`**
 
 *   **Description**: List all available tools in this server.
 *   **Parameters**: None
@@ -103,7 +103,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`character-count`**
+**`character_count`**
 
 *   **Description**: Return the number of characters in the input text.
 *   **Parameters**:
@@ -112,7 +112,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`word-count`**
+**`word_count`**
 
 *   **Description**: Return the number of words in the input text.
 *   **Parameters**:
@@ -130,7 +130,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`readability-score`**
+**`readability_score`**
 
 *   **Description**: Return readability scores using Flesch Reading Ease, Flesch-Kincaid Grade Level, and Gunning Fog index.
 *   **Parameters**:
@@ -143,7 +143,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`reading-time`**
+**`reading_time`**
 
 *   **Description**: Return the estimated reading time for the input text (based on `textstat`).
 *   **Parameters**:
@@ -156,7 +156,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`keyword-density`**
+**`keyword_density`**
 
 *   **Description**: Calculate the density of a given keyword in the text (case-insensitive, lemmatized).
 *   **Parameters**:
@@ -166,7 +166,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`keyword-frequency`**
+**`keyword_frequency`**
 
 *   **Description**: Count how often each keyword (token) appears in the text.
 *   **Parameters**:
@@ -176,7 +176,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`top-keywords`**
+**`top_keywords`**
 
 *   **Description**: Identify the most frequently used keywords in the text.
 *   **Parameters**:
@@ -187,7 +187,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`keyword-context`**
+**`keyword_context`**
 
 *   **Description**: Extract sentences where a specific keyword (case-insensitive, lemmatized) appears.
 *   **Parameters**:
@@ -197,7 +197,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`passive-voice-detection`**
+**`passive_voice_detection`**
 
 *   **Description**: Detect sentences containing passive voice constructions (based on a simplified pattern matching using spaCy).
 *   **Parameters**:
@@ -206,7 +206,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`perplexity-analysis`**
+**`perplexity_analysis`**
 
 *   **Description**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2. Computes document-level and sentence-level perplexity along with burstiness (variance of perplexity across sentences). Low perplexity combined with low burstiness is a statistical signal used by AI detectors.
 *   **Parameters**:
@@ -221,7 +221,7 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
-**`stylometric-analysis`**
+**`stylometric_analysis`**
 
 *   **Description**: Analyze text for stylometric features and detect AI-generated content. Computes sentence length distribution, lexical diversity metrics (TTR, Hapax Legomena), POS ratios, and other stylometric features. Flags outliers relative to human writing baselines using z-score analysis.
 *   **Parameters**:
