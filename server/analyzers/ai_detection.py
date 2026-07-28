@@ -93,10 +93,10 @@ class AIDetectionAnalyzer:
                         sentence_ppl = float("inf")
 
                     sentence_results.append(
-                        {"text": sentence, "ppl": round(sentence_ppl, 2) if not np.isinf(sentence_ppl) else None}
+                        {"text": sentence, "ppl": round(sentence_ppl, 2) if np.isfinite(sentence_ppl) else None}
                     )
 
-                    if not np.isinf(sentence_ppl):
+                    if np.isfinite(sentence_ppl):
                         sentence_perplexities.append(sentence_ppl)
 
             # Calculate document-level perplexity
@@ -112,7 +112,7 @@ class AIDetectionAnalyzer:
             flags = {"high_ai_probability": False, "reasons": []}
             thresholds = config["thresholds"]
 
-            if not np.isinf(doc_ppl) and doc_ppl < thresholds["ppl_max"]:
+            if np.isfinite(doc_ppl) and doc_ppl < thresholds["ppl_max"]:
                 if doc_burstiness < thresholds["burstiness_min"]:
                     flags["high_ai_probability"] = True
                     flags["reasons"].append(
@@ -128,7 +128,7 @@ class AIDetectionAnalyzer:
                 )
 
             return {
-                "doc_ppl": round(doc_ppl, 2) if not np.isinf(doc_ppl) else None,
+                "doc_ppl": round(doc_ppl, 2) if np.isfinite(doc_ppl) else None,
                 "doc_burstiness": round(doc_burstiness, 2),
                 "sentences": sentence_results,
                 "config": {"model": config["model_name"], "thresholds": thresholds},
@@ -295,6 +295,13 @@ class AIDetectionAnalyzer:
             # Calculate perplexity from loss
             perplexity = torch.exp(torch.tensor(loss)).item()
 
+            # A single-token input gives the model nothing to predict, so the loss
+            # comes back NaN and so does exp(loss). NaN is not a usable perplexity
+            # and it poisons every downstream aggregation, so report it the same
+            # way as a failed calculation.
+            if not np.isfinite(perplexity):
+                return float("inf")
+
             return perplexity
 
         except Exception as e:
@@ -306,8 +313,10 @@ class AIDetectionAnalyzer:
         if len(sentence_perplexities) < 2:
             return 0.0
 
-        # Filter out infinite values
-        valid_perplexities = [p for p in sentence_perplexities if not np.isinf(p)]
+        # Filter out non-finite values. `statistics.stdev` raises
+        # "cannot convert NaN to integer ratio" on a NaN, which previously failed
+        # the whole analysis, so this must reject NaN as well as infinity.
+        valid_perplexities = [p for p in sentence_perplexities if np.isfinite(p)]
 
         if len(valid_perplexities) < 2:
             return 0.0
