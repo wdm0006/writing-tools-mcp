@@ -446,6 +446,76 @@ class TestStatisticalFunctions:
         assert result[1]["z_score"] == 1.0  # (20-15)/5
 
 
+class TestUndefinedSentenceLengthStd:
+    """Sentence-length dispersion must be absent, not zero, when it cannot be measured."""
+
+    SINGLE_SENTENCE_TEXT = "The committee approved the revised budget yesterday after a long and contentious debate."
+
+    UNIFORM_SENTENCES_TEXT = (
+        "The committee approved the revised budget yesterday. "
+        "The council rejected the amended proposal quickly. "
+        "The board reviewed the updated schedule carefully."
+    )
+
+    @pytest.fixture
+    def analyzer(self):
+        """Create a mock analyzer for testing."""
+        return StylemetricAnalyzer(MagicMock())
+
+    @staticmethod
+    def _mock_sentences(word_counts):
+        """Build mock spaCy sentences with the given non-punctuation token counts."""
+        sentences = []
+        for word_count in word_counts:
+            sent = MagicMock()
+            tokens = [MagicMock() for _ in range(word_count)]
+            for token in tokens:
+                token.is_punct = False
+                token.is_space = False
+            sent.__iter__ = lambda self, tokens=tokens: iter(tokens)
+            sentences.append(sent)
+        return sentences
+
+    @pytest.mark.parametrize("word_counts", [[], [12]])
+    def test_std_is_none_when_undefined(self, analyzer, word_counts):
+        """Fewer than two sentences means no dispersion measurement exists."""
+        assert analyzer._sentence_length_std(self._mock_sentences(word_counts)) is None
+
+    def test_std_is_sample_stdev_for_two_or_more_sentences(self, analyzer):
+        """Two or more sentences still yield the sample standard deviation."""
+        result = analyzer._sentence_length_std(self._mock_sentences([5, 15]))
+        assert abs(result - 7.07) < 0.01
+
+    def test_z_scores_omit_unmeasurable_feature(self):
+        """A None feature value is skipped; numeric values are scored as before."""
+        features = {"sentence_len_std": None, "avg_sentence_len": 20.0}
+
+        z_scores = calculate_z_scores(features, SAMPLE_BASELINE["statistics"])
+
+        assert "sentence_len_std" not in z_scores
+        assert abs(z_scores["avg_sentence_len"] - 1.0) < 0.01
+
+    def test_single_sentence_is_not_flagged_as_uniform(self, ai_detection_analyzer):
+        """A one-sentence document must not be charged a uniform-sentence indicator."""
+        result = ai_detection_analyzer.stylometric_analysis(self.SINGLE_SENTENCE_TEXT)
+
+        assert "error" not in result
+        assert result["features"]["sentence_len_std"] is None
+        assert "sentence_len_std" not in result["z_scores"]
+        assert "sentence_len_std" not in result["flags"]["warnings"]
+        assert "sentence_len_std" not in result["flags"]["errors"]
+        assert "uniform_sentences" not in result["flags"]["ai_indicators"]
+
+    def test_uniform_multi_sentence_text_still_flags_uniform_sentences(self, ai_detection_analyzer):
+        """A genuinely uniform multi-sentence document keeps the indicator."""
+        result = ai_detection_analyzer.stylometric_analysis(self.UNIFORM_SENTENCES_TEXT)
+
+        assert result["features"]["sentence_len_std"] == 0.0
+        assert result["z_scores"]["sentence_len_std"] < -2.0
+        assert "sentence_len_std" in result["flags"]["warnings"]
+        assert "uniform_sentences" in result["flags"]["ai_indicators"]
+
+
 class TestIntegration:
     """Integration tests for the complete stylometric analysis."""
 
