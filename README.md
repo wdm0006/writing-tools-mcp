@@ -213,8 +213,8 @@ Below is a detailed reference for each tool provided by the server.
     *   `text` (`str`): The text to analyze.
     *   `language` (`str`, optional, default=`"en"`): Language code (only "en" supported currently).
 *   **Returns**: `dict` - Analysis results including:
-    *   `doc_ppl` (`float`): Document-level perplexity score
-    *   `doc_burstiness` (`float`): Burstiness score (standard deviation of sentence perplexities)
+    *   `doc_ppl` (`float | null`): Document-level perplexity score; `null` when no sentence could be scored
+    *   `doc_burstiness` (`float | null`): Burstiness score (standard deviation of sentence perplexities); `null` when fewer than two sentences were scored, since the standard deviation is undefined there
     *   `sentences` (`list`): Sentence-level perplexity scores
     *   `config` (`dict`): Model configuration and thresholds
     *   `flags` (`dict`): AI detection flags with confidence and explanations

@@ -77,9 +77,10 @@ class TestPerplexityAnalysis:
         assert burstiness > 0
         assert isinstance(burstiness, float)
 
-        # Test with insufficient data
-        assert analyzer._calculate_burstiness([10.0]) == 0.0
-        assert analyzer._calculate_burstiness([]) == 0.0
+        # Test with insufficient data — a standard deviation is undefined, not zero
+        assert analyzer._calculate_burstiness([10.0]) is None
+        assert analyzer._calculate_burstiness([]) is None
+        assert analyzer._calculate_burstiness([10.0, float("inf")]) is None
 
         # Test with infinities
         perplexities_with_inf = [10.0, float("inf"), 15.0, float("inf"), 12.0]
@@ -148,8 +149,8 @@ class TestPerplexityNaNHandling:
         mixed = [10.0, float("nan"), float("inf"), 15.0, float("-inf"), 12.0]
         assert np.isfinite(analyzer._calculate_burstiness(mixed))
 
-    def test_burstiness_all_nan_returns_zero(self, analyzer):
-        assert analyzer._calculate_burstiness([float("nan"), float("nan")]) == 0.0
+    def test_burstiness_all_nan_is_undefined(self, analyzer):
+        assert analyzer._calculate_burstiness([float("nan"), float("nan")]) is None
 
     def test_calculate_perplexity_converts_nan_to_inf(self, analyzer):
         """A NaN loss from the model is reported as a failed calculation."""
@@ -193,3 +194,67 @@ class TestPerplexityNaNHandling:
         assert np.isfinite(result["doc_burstiness"])
         # the NaN sentence is still reported, with a null score
         assert [s["ppl"] for s in result["sentences"]] == [20.0, None, 40.0]
+
+
+class TestUndefinedBurstiness:
+    """Burstiness that was never measured must not be reported as 0.0.
+
+    Burstiness is the sample standard deviation of the sentence perplexities, so it
+    is undefined for fewer than two scored sentences. Reporting the sentinel 0.0
+    made every such document trip the low-burstiness branch, and any single-sentence
+    input scoring under `ppl_max` was confidently flagged as AI-generated.
+    """
+
+    @pytest.fixture
+    def analyzer(self):
+        mock_config = {"gpt2": {"model_name": "gpt2", "cache_dir": "models/gpt2", "tokenizer": "gpt2"}}
+        return AIDetectionAnalyzer(Mock(), Mock(), mock_config)
+
+    def _run(self, analyzer, sentences, perplexities):
+        """Drive perplexity_analysis over fixed per-sentence perplexities."""
+        config = {
+            "model_name": "gpt2",
+            "max_length": 512,
+            "overlap": 50,
+            "thresholds": {"ppl_max": 50, "burstiness_min": 1.0},
+        }
+        analyzer.gpt2_manager.get_model_and_tokenizer.return_value = (Mock(), Mock(), config)
+        values = iter(perplexities)
+
+        with (
+            patch("server.analyzers.ai_detection.split_into_sentences", return_value=sentences),
+            patch.object(analyzer, "_chunk_text", side_effect=lambda s, *a, **k: [s]),
+            patch.object(analyzer, "_calculate_perplexity", side_effect=lambda *a, **k: next(values)),
+        ):
+            return analyzer.perplexity_analysis("irrelevant, sentences are patched")
+
+    def test_single_sentence_is_not_flagged_as_ai(self, analyzer):
+        """A lone sentence under ppl_max has no burstiness evidence against it."""
+        result = self._run(analyzer, ["One lonely sentence."], [10.0])
+
+        assert result.get("error") is None, f"analysis failed: {result.get('error')}"
+        assert result["doc_ppl"] == 10.0
+        assert result["doc_burstiness"] is None, "one sentence gives no standard deviation"
+        assert result["flags"]["high_ai_probability"] is False
+        assert not any("low burstiness" in reason.lower() for reason in result["flags"]["reasons"])
+        assert any("at least two scored sentences" in reason for reason in result["flags"]["reasons"])
+
+    def test_all_sentences_unscored_claims_nothing(self, analyzer):
+        """Nothing was measured, so neither metric may be described as acceptable."""
+        result = self._run(analyzer, ["First one.", "Second one."], [float("inf"), float("inf")])
+
+        assert result.get("error") is None, f"analysis failed: {result.get('error')}"
+        assert result["doc_ppl"] is None
+        assert result["doc_burstiness"] is None
+        assert result["flags"]["high_ai_probability"] is False
+        assert not any("acceptable perplexity" in reason for reason in result["flags"]["reasons"])
+        assert not any("low burstiness" in reason.lower() for reason in result["flags"]["reasons"])
+
+    def test_two_scored_sentences_still_flag_on_thresholds(self, analyzer):
+        """The measurable case is unchanged: low perplexity plus low burstiness flags."""
+        result = self._run(analyzer, ["First one.", "Second one."], [10.0, 10.5])
+
+        assert result["doc_ppl"] == 10.25
+        assert result["doc_burstiness"] == pytest.approx(0.35, abs=0.01)
+        assert result["flags"]["high_ai_probability"] is True
+        assert "low burstiness" in result["flags"]["reasons"][0]
