@@ -112,24 +112,37 @@ class AIDetectionAnalyzer:
             flags = {"high_ai_probability": False, "reasons": []}
             thresholds = config["thresholds"]
 
-            if np.isfinite(doc_ppl) and doc_ppl < thresholds["ppl_max"]:
-                if doc_burstiness < thresholds["burstiness_min"]:
-                    flags["high_ai_probability"] = True
-                    flags["reasons"].append(
-                        f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}) and low burstiness ({doc_burstiness:.2f} < {thresholds['burstiness_min']})"
-                    )
-                else:
-                    flags["reasons"].append(
-                        f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}) but acceptable burstiness ({doc_burstiness:.2f})"
-                    )
-            elif doc_burstiness < thresholds["burstiness_min"]:
+            # An unmeasurable burstiness is not a low one, so it can never contribute
+            # to the AI flag. A measured burstiness implies two or more finite
+            # sentence perplexities, and therefore a finite doc_ppl.
+            burstiness_measured = doc_burstiness is not None
+            low_burstiness = burstiness_measured and doc_burstiness < thresholds["burstiness_min"]
+            low_ppl = np.isfinite(doc_ppl) and doc_ppl < thresholds["ppl_max"]
+
+            if low_ppl and low_burstiness:
+                flags["high_ai_probability"] = True
+                flags["reasons"].append(
+                    f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}) and low burstiness ({doc_burstiness:.2f} < {thresholds['burstiness_min']})"
+                )
+            elif low_ppl and burstiness_measured:
+                flags["reasons"].append(
+                    f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}) but acceptable burstiness ({doc_burstiness:.2f})"
+                )
+            elif low_ppl:
+                flags["reasons"].append(
+                    f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}); "
+                    "burstiness requires at least two scored sentences"
+                )
+            elif low_burstiness:
                 flags["reasons"].append(
                     f"Low burstiness ({doc_burstiness:.2f} < {thresholds['burstiness_min']}) but acceptable perplexity"
                 )
+            elif not burstiness_measured:
+                flags["reasons"].append("Burstiness requires at least two scored sentences")
 
             return {
                 "doc_ppl": round(doc_ppl, 2) if np.isfinite(doc_ppl) else None,
-                "doc_burstiness": round(doc_burstiness, 2),
+                "doc_burstiness": round(doc_burstiness, 2) if burstiness_measured else None,
                 "sentences": sentence_results,
                 "config": {"model": config["model_name"], "thresholds": thresholds},
                 "flags": flags,
@@ -309,9 +322,14 @@ class AIDetectionAnalyzer:
             return float("inf")
 
     def _calculate_burstiness(self, sentence_perplexities):
-        """Calculate burstiness as the standard deviation of sentence perplexities."""
+        """Calculate burstiness as the standard deviation of sentence perplexities.
+
+        Returns None when fewer than two sentences were scored: a sample standard
+        deviation is undefined there, and reporting 0.0 would be indistinguishable
+        from a real reading of "perfectly uniform".
+        """
         if len(sentence_perplexities) < 2:
-            return 0.0
+            return None
 
         # Filter out non-finite values. `statistics.stdev` raises
         # "cannot convert NaN to integer ratio" on a NaN, which previously failed
@@ -319,6 +337,6 @@ class AIDetectionAnalyzer:
         valid_perplexities = [p for p in sentence_perplexities if np.isfinite(p)]
 
         if len(valid_perplexities) < 2:
-            return 0.0
+            return None
 
         return statistics.stdev(valid_perplexities)
