@@ -8,7 +8,7 @@ AI-generated content.
 
 import statistics
 from collections import Counter
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 class StylemetricAnalyzer:
@@ -164,7 +164,7 @@ class StylemetricAnalyzer:
         """Return empty/default feature values for empty text."""
         return {
             "avg_sentence_len": 0.0,
-            "sentence_len_std": 0.0,
+            "sentence_len_std": None,
             "sentence_positions": [],
             "ttr": 0.0,
             "hapax_legomena_rate": 0.0,
@@ -188,17 +188,17 @@ class StylemetricAnalyzer:
 
         return statistics.mean(lengths) if lengths else 0.0
 
-    def _sentence_length_std(self, sentences) -> float:
-        """Calculate standard deviation of sentence lengths."""
+    def _sentence_length_std(self, sentences) -> Optional[float]:
+        """Calculate standard deviation of sentence lengths, or None if undefined."""
         if len(sentences) < 2:
-            return 0.0
+            return None
 
         lengths = []
         for sent in sentences:
             word_count = sum(1 for token in sent if not token.is_punct and not token.is_space)
             lengths.append(word_count)
 
-        return statistics.stdev(lengths) if len(lengths) > 1 else 0.0
+        return statistics.stdev(lengths) if len(lengths) > 1 else None
 
     def _sentence_positions(self, sentences) -> List[Dict[str, Any]]:
         """Extract detailed information about each sentence."""

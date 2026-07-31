@@ -38,6 +38,11 @@ def calculate_z_scores(features: Dict[str, Any], baseline: Dict[str, Any]) -> Di
             feature_value = features[feature]
             baseline_stats = baseline[feature]
 
+            # A feature that could not be measured has no z-score at all; scoring
+            # it as if it were 0.0 would misreport an absent value as an outlier.
+            if feature_value is None:
+                continue
+
             if isinstance(baseline_stats, dict) and "mean" in baseline_stats and "std" in baseline_stats:
                 mean = baseline_stats["mean"]
                 std = baseline_stats["std"]
