@@ -16,11 +16,23 @@ __all__ = [
 ]
 
 
-def initialize_analyzers(nlp_model, gpt2_manager, config):
-    """Initialize all analyzers with required dependencies."""
+def initialize_model_independent_analyzers():
+    """Initialize the analyzers that need no NLP model.
+
+    These are safe to construct without loading spaCy. ``BasicStatsAnalyzer.spellcheck``
+    still depends on the shared preprocessor, so only the count and readability tools
+    may use this set on its own.
+    """
     return {
         "basic_stats": BasicStatsAnalyzer(),
         "readability": ReadabilityAnalyzer(),
+    }
+
+
+def initialize_analyzers(nlp_model, gpt2_manager, config):
+    """Initialize all analyzers with required dependencies."""
+    return {
+        **initialize_model_independent_analyzers(),
         "keyword": KeywordAnalyzer(nlp_model),
         "style": StyleAnalyzer(nlp_model),
         "ai_detection": AIDetectionAnalyzer(nlp_model, gpt2_manager, config),
