@@ -158,10 +158,10 @@ Below is a detailed reference for each tool provided by the server.
 
 **`keyword_density`**
 
-*   **Description**: Calculate the density of a given keyword in the text (case-insensitive, lemmatized).
+*   **Description**: Calculate the density of a given keyword in the text (case-insensitive, lemmatized). Multi-word keywords are matched as complete, contiguous phrases.
 *   **Parameters**:
     *   `text` (`str`): The text to analyze.
-    *   `keyword` (`str`): The keyword to search for.
+    *   `keyword` (`str`): The keyword or phrase to search for.
 *   **Returns**: `float` - The density percentage ( (keyword count / total words) * 100 ).
 
 ---
@@ -189,11 +189,11 @@ Below is a detailed reference for each tool provided by the server.
 
 **`keyword_context`**
 
-*   **Description**: Extract sentences where a specific keyword (case-insensitive, lemmatized) appears.
+*   **Description**: Extract sentences where a specific keyword (case-insensitive, lemmatized) appears. Multi-word keywords are matched as complete, contiguous phrases.
 *   **Parameters**:
     *   `text` (`str`): The text to search within.
-    *   `keyword` (`str`): The keyword to find.
-*   **Returns**: `list[str]` - A list of sentences containing the keyword or its lemma.
+    *   `keyword` (`str`): The keyword or phrase to find.
+*   **Returns**: `list[str]` - A list of sentences containing the keyword or phrase, matched on lemmas.
 
 ---
 

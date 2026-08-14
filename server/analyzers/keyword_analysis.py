@@ -11,12 +11,23 @@ class KeywordAnalyzer:
     def __init__(self, nlp_model):
         self.nlp = nlp_model
 
+    @staticmethod
+    def _count_sequence(tokens: list[str], keyword_tokens: list[str]) -> int:
+        """Count contiguous occurrences of a token sequence."""
+        keyword_length = len(keyword_tokens)
+        if keyword_length == 0:
+            return 0
+        return sum(
+            tokens[index : index + keyword_length] == keyword_tokens
+            for index in range(len(tokens) - keyword_length + 1)
+        )
+
     def keyword_density(self, text: str, keyword: str) -> float:
         """Calculate the density of a specific keyword within the text."""
         processed_text = preprocess_text(text)
-        processed_keyword = preprocess_text(keyword)[0] if preprocess_text(keyword) else keyword.lower()
+        processed_keyword = preprocess_text(keyword)
 
-        keyword_count = processed_text.count(processed_keyword)
+        keyword_count = self._count_sequence(processed_text, processed_keyword)
         return (keyword_count / len(processed_text)) * 100 if processed_text else 0
 
     def keyword_frequency(self, text: str, remove_stopwords: bool = True) -> dict:
@@ -34,14 +45,15 @@ class KeywordAnalyzer:
         """Extract sentences from the text that contain a specific keyword or its lemma."""
         doc = self.nlp(text)
 
-        # Process the keyword to get its lemma
         keyword_doc = self.nlp(keyword.lower())
-        keyword_lemma = keyword_doc[0].lemma_ if len(keyword_doc) > 0 else keyword.lower()
+        keyword_tokens = [token.lemma_.lower() for token in keyword_doc if not token.is_punct and not token.is_space]
+        if not keyword_tokens:
+            return []
 
-        # Extract sentences containing the keyword or its lemmatized form
         contexts = []
         for sent in doc.sents:
-            if any(token.text.lower() == keyword.lower() or token.lemma_ == keyword_lemma for token in sent):
+            sentence_tokens = [token.lemma_.lower() for token in sent if not token.is_punct and not token.is_space]
+            if self._count_sequence(sentence_tokens, keyword_tokens):
                 contexts.append(sent.text)
 
         return contexts
