@@ -13,7 +13,7 @@ import sys
 from fastmcp import FastMCP
 
 # Analysis imports
-from server.analyzers import initialize_analyzers
+from server.analyzers import initialize_analyzers, initialize_model_independent_analyzers
 
 # Configuration imports
 from server.config import load_config
@@ -40,6 +40,20 @@ gpt2_manager = model_managers["gpt2"]
 
 # Analyzers will be initialized lazily on first use
 _analyzers = None
+_model_independent_analyzers = None
+
+
+def get_model_independent_analyzers():
+    """Lazily initialize and return the analyzers that need no NLP model.
+
+    Deliberately separate from :func:`get_analyzers` so the count and readability
+    tools never trigger a spaCy load they cannot use.
+    """
+    global _model_independent_analyzers
+    if _model_independent_analyzers is None:
+        _model_independent_analyzers = initialize_model_independent_analyzers()
+        logger.info("Model-independent analyzers initialized on first use (no NLP model loaded)")
+    return _model_independent_analyzers
 
 
 def get_analyzers():
@@ -114,7 +128,6 @@ def list_tools():
 
 
 @mcp.tool()
-@auto_cleanup("spacy")
 def character_count(text: str) -> int:
     """Calculates the total number of characters in the provided text.
 
@@ -124,11 +137,10 @@ def character_count(text: str) -> int:
     Returns:
         int: The total character count of the input text.
     """
-    return get_analyzers()["basic_stats"].character_count(text)
+    return get_model_independent_analyzers()["basic_stats"].character_count(text)
 
 
 @mcp.tool()
-@auto_cleanup("spacy")
 def word_count(text: str) -> int:
     """Calculates the total number of words in the provided text, splitting by whitespace.
 
@@ -138,7 +150,7 @@ def word_count(text: str) -> int:
     Returns:
         int: The total word count of the input text.
     """
-    return get_analyzers()["basic_stats"].word_count(text)
+    return get_model_independent_analyzers()["basic_stats"].word_count(text)
 
 
 @mcp.tool()
@@ -159,7 +171,6 @@ def spellcheck(text: str):
 
 
 @mcp.tool()
-@auto_cleanup("spacy")
 def readability_score(text: str, level: str = "full") -> dict:
     """
     Calculates various readability scores (Flesch Reading Ease, Flesch-Kincaid Grade Level,
@@ -180,11 +191,10 @@ def readability_score(text: str, level: str = "full") -> dict:
               - If `level` is "paragraph": `{"full_text": {...}, "paragraphs": [{"paragraph_number": int, "text": str, "scores": {...}}, ...]}`
               - If `level` is invalid: `{"error": str}`
     """
-    return get_analyzers()["readability"].readability_score(text, level)
+    return get_model_independent_analyzers()["readability"].readability_score(text, level)
 
 
 @mcp.tool()
-@auto_cleanup("spacy")
 def reading_time(text: str, level: str = "full") -> dict:
     """
     Estimates the reading time for the input text using textstat. The estimation
@@ -204,7 +214,7 @@ def reading_time(text: str, level: str = "full") -> dict:
               - If `level` is "paragraph": `{"full_text": float, "paragraphs": [{"paragraph_number": int, "text": str, "reading_time_minutes": float}, ...]}`
               - If `level` is invalid: `{"error": str}`
     """
-    return get_analyzers()["readability"].reading_time(text, level)
+    return get_model_independent_analyzers()["readability"].reading_time(text, level)
 
 
 @mcp.tool()

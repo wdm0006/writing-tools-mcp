@@ -9,7 +9,14 @@ class BasicStatsAnalyzer:
     """Handles basic text statistics like character count, word count, and spellchecking."""
 
     def __init__(self):
-        self.spell_checker = SpellChecker()
+        self._spell_checker = None
+
+    @property
+    def spell_checker(self) -> SpellChecker:
+        """Build the spell checker on first use; only ``spellcheck`` needs it."""
+        if self._spell_checker is None:
+            self._spell_checker = SpellChecker()
+        return self._spell_checker
 
     def character_count(self, text: str) -> int:
         """Calculate the total number of characters in the text."""
