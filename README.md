@@ -145,7 +145,7 @@ Below is a detailed reference for each tool provided by the server.
 
 **`reading_time`**
 
-*   **Description**: Return the estimated reading time for the input text (based on `textstat`).
+*   **Description**: Return the estimated reading time for the input text (based on `textstat`). Markdown markup is stripped before estimating, so syntax characters and link/image target URLs do not count toward the time.
 *   **Parameters**:
     *   `text` (`str`): The text to analyze.
     *   `level` (`str`, optional): Granularity of analysis. Options:

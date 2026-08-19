@@ -70,6 +70,7 @@ class ReadabilityAnalyzer:
         """
 
         def get_reading_time(text_segment):
+            text_segment = strip_markdown_markup(text_segment)
             if not text_segment:
                 return 0
             # Convert milliseconds to minutes
