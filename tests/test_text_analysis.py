@@ -1,7 +1,9 @@
 """Test module for text analysis functionality."""
 
+import pytest
+
 from server.analyzers import ReadabilityAnalyzer
-from server.text_processing import parse_markdown_sections, split_paragraphs
+from server.text_processing import parse_markdown_sections, split_paragraphs, strip_markdown_markup
 
 # --- Test Helper Functions ---
 
@@ -211,6 +213,45 @@ This is the third paragraph."""
         assert scores["flesch"] is None
         assert scores["kincaid"] is None
         assert scores["fog"] is None
+
+    def test_readability_score_full_multi_heading_document(self):
+        """Headings must not fuse into the following block and inflate the scores."""
+        markdown_text = """# Introduction
+
+The system processes text quickly.
+
+## Setup
+
+Install the package first.
+
+## Usage
+
+Call the analyze function."""
+        plain_equivalent = """Introduction
+
+The system processes text quickly.
+
+Setup
+
+Install the package first.
+
+Usage
+
+Call the analyze function."""
+
+        assert strip_markdown_markup(markdown_text) == plain_equivalent
+        assert len(plain_equivalent.split()) == 16
+
+        result = self.analyzer.readability_score(markdown_text, level="full")
+
+        # Scoring the markdown must match scoring its plain-text equivalent exactly.
+        assert result == self.analyzer.readability_score(plain_equivalent, level="full")
+
+        # Fusing the three headings would drop the word count to 13 and report this
+        # plain prose as roughly flesch 16.4 / kincaid 12.0 / fog 17.1.
+        assert result["flesch"] == pytest.approx(40.72, abs=1.0)
+        assert result["kincaid"] == pytest.approx(8.90, abs=1.0)
+        assert result["fog"] == pytest.approx(9.62, abs=1.0)
 
     def test_readability_score_invalid_level(self):
         """Test readability score with an invalid level."""
