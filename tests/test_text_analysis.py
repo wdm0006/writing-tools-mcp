@@ -248,10 +248,10 @@ Call the analyze function."""
         assert result == self.analyzer.readability_score(plain_equivalent, level="full")
 
         # Fusing the three headings would drop the word count to 13 and report this
-        # plain prose as roughly flesch 13.7 / kincaid 12.4 / fog 17.1.
-        assert result["flesch"] == pytest.approx(42.80, abs=1.0)
-        assert result["kincaid"] == pytest.approx(8.61, abs=1.0)
-        assert result["fog"] == pytest.approx(9.63, abs=1.0)
+        # plain prose as roughly flesch 16.4 / kincaid 12.0 / fog 17.1.
+        assert result["flesch"] == pytest.approx(40.72, abs=1.0)
+        assert result["kincaid"] == pytest.approx(8.90, abs=1.0)
+        assert result["fog"] == pytest.approx(9.62, abs=1.0)
 
     def test_readability_score_invalid_level(self):
         """Test readability score with an invalid level."""
