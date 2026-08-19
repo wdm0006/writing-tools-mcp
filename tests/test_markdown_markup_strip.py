@@ -52,7 +52,27 @@ def test_heading_h1():
 
 def test_heading_h2():
     assert strip_markdown_markup("## Heading 2") == "Heading 2"
-    assert strip_markdown_markup("Text before\n## Heading\nText after.") == "Text before\n\nHeadingText after."
+    assert strip_markdown_markup("Text before\n## Heading\nText after.") == "Text before\n\nHeading\n\nText after."
+
+
+def test_heading_separated_from_following_block():
+    assert strip_markdown_markup("# Title\n\nBody text here.") == "Title\n\nBody text here."
+    assert strip_markdown_markup("Intro para.\n\n## Sec\n\nMore.") == "Intro para.\n\nSec\n\nMore."
+
+
+def test_consecutive_headings_are_separate_blocks():
+    assert strip_markdown_markup("# A\n## B\n### C\n\ntext") == "A\n\nB\n\nC\n\ntext"
+
+
+def test_heading_followed_by_list():
+    assert strip_markdown_markup("# Title\n\n- one\n- two") == "Title\n\none\n\ntwo"
+
+
+def test_list_markers_are_still_dropped():
+    stripped = strip_markdown_markup("- a\n- b")
+    assert stripped == "a\n\nb"
+    assert "- " not in stripped
+    assert "* " not in stripped
 
 
 def test_unordered_list():
@@ -103,7 +123,9 @@ Block of code
 Final paragraph.
     """
     # This reflects the actual output structure observed from pytest diffs
-    expected = """TitleSome introductory text.
+    expected = """Title
+
+Some introductory text.
 
 Here is a link and an image alt text.
 

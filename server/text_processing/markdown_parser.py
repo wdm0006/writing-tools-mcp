@@ -255,7 +255,7 @@ def strip_markdown_markup(text: str) -> str:
                     content_parts.append("\n")
                 elif child.type == "hardbreak":
                     content_parts.append("\n\n")
-        elif token.type == "paragraph_close":
+        elif token.type == "paragraph_close" or token.type == "heading_close":
             current_text_so_far = "".join(content_parts)
             if content_parts and not current_text_so_far.endswith("\n\n"):
                 if current_text_so_far.endswith("\n"):
