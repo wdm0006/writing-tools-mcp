@@ -17,6 +17,7 @@ from server.analyzers import initialize_analyzers, initialize_model_independent_
 
 # Configuration imports
 from server.config import load_config
+from server.config.defaults import DEFAULT_CONFIG
 
 # Model imports
 from server.models import initialize_models
@@ -26,14 +27,42 @@ from server.text_processing import initialize_preprocessor
 from server.text_processing.sentence_splitter import initialize_sentence_splitter
 
 logger = logging.getLogger(__name__)
-# Explicitly configure logging to use stderr to avoid breaking MCP JSON-RPC protocol on stdout
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", stream=sys.stderr)
+
+DEFAULT_LOGGING = DEFAULT_CONFIG["logging"]
+
+# Bootstrap logging before the configuration is read, so `load_config`'s own validation
+# warnings are visible. Logs go to stderr because the server speaks JSON-RPC on stdout.
+logging.basicConfig(level=DEFAULT_LOGGING["level"], format=DEFAULT_LOGGING["format"], stream=sys.stderr)
 logger.debug("Starting server.app initialization")
+
+
+def configure_logging(config):
+    """Apply the configured logging level and format to the stderr handler.
+
+    An unrecognized level falls back to the default rather than raising, so a typo in
+    `.mcp-config.yaml` cannot stop the server from starting. The stream stays pinned to
+    stderr: a log record on stdout would corrupt the MCP protocol stream.
+    """
+    logging_config = config.get("logging", {})
+    level = logging_config.get("level", DEFAULT_LOGGING["level"])
+    log_format = logging_config.get("format", DEFAULT_LOGGING["format"])
+
+    resolved_level = logging.getLevelName(str(level).upper())
+    unknown_level = not isinstance(resolved_level, int)
+    if unknown_level:
+        resolved_level = logging.getLevelName(DEFAULT_LOGGING["level"])
+
+    logging.basicConfig(level=resolved_level, format=log_format, stream=sys.stderr, force=True)
+
+    if unknown_level:
+        logger.warning("Unknown logging level %r in configuration. Using %s.", level, DEFAULT_LOGGING["level"])
+
 
 mcp = FastMCP("Writing Tools MCP Server")
 
 # Initialize configuration and model managers (lazy loading)
 config = load_config()
+configure_logging(config)
 model_managers = initialize_models(config)
 spacy_manager = model_managers["spacy"]
 gpt2_manager = model_managers["gpt2"]

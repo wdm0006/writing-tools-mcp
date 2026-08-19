@@ -18,3 +18,7 @@ stylometry:
   features:
     enabled: ["sentence_length", "ttr", "hapax", "pos_ratios", "punctuation", "function_words"]
     pos_tags: ["NOUN", "VERB", "ADJ", "ADV", "ADP", "DET", "PRON", "CONJ", "NUM", "PART"] 
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(levelname)s - %(message)s"
