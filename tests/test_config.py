@@ -301,7 +301,8 @@ class TestValidOverrides:
 class TestSchemaCoverage:
     """The schema covers everything the server actually reads."""
 
-    # Settings read by `initialize_models` or by the analysis path, as dotted paths.
+    # Settings read by `initialize_models`, `configure_logging`, or the analysis path,
+    # as dotted paths.
     CONSUMED_SETTINGS = [
         "perplexity.model_name",
         "perplexity.max_length",
@@ -312,6 +313,8 @@ class TestSchemaCoverage:
         "stylometry.thresholds.warning_z",
         "stylometry.thresholds.error_z",
         "stylometry.thresholds.ai_confidence_threshold",
+        "logging.level",
+        "logging.format",
     ]
 
     def test_every_consumed_setting_is_declared(self):

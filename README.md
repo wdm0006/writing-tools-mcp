@@ -48,6 +48,48 @@ uv run run_server.py
 }
 ```
 
+## Server Configuration
+
+The server reads an optional `.mcp-config.yaml` from its working directory. Unknown keys and
+wrongly typed values are ignored with a warning on stderr, and every missing key falls back to
+the default below.
+
+```yaml
+perplexity:
+  model_name: "gpt2"     # Hugging Face model used for perplexity analysis
+  max_length: 512        # Token window per chunk
+  overlap: 50            # Token overlap between chunks
+  device: "cpu"          # "cpu" pins the model to CPU
+  language: "en"         # Only "en" is supported
+  thresholds:
+    ppl_max: 25.0        # Perplexity at or below this counts as an AI signal
+    burstiness_min: 2.5  # Burstiness below this counts as an AI signal
+
+stylometry:
+  default_baseline: "brown_corpus"
+  custom_baselines_dir: "data/baselines/custom_baselines"
+  thresholds:
+    warning_z: 2.0                # |z| for a warning
+    error_z: 3.0                  # |z| for an error
+    ai_confidence_threshold: 0.7  # Confidence needed to flag AI authorship
+  features:
+    enabled: ["sentence_length", "ttr", "hapax", "pos_ratios", "punctuation", "function_words"]
+    pos_tags: ["NOUN", "VERB", "ADJ", "ADV", "ADP", "DET", "PRON", "CONJ", "NUM", "PART"]
+
+logging:
+  level: "INFO"    # CRITICAL, ERROR, WARNING, INFO, or DEBUG
+  format: "%(asctime)s - %(levelname)s - %(message)s"  # Standard `logging` format string
+```
+
+Set `logging.level: "DEBUG"` when reporting a problem. Logs are always written to stderr — stdout
+carries the MCP JSON-RPC stream — and an unrecognized level falls back to `INFO` with a warning
+rather than stopping the server.
+
+`perplexity.language`, `stylometry.default_baseline`, `stylometry.custom_baselines_dir` and
+`stylometry.features` are accepted and type-checked, but nothing reads them yet; the baseline and
+language are chosen per call through the `stylometric_analysis` and `perplexity_analysis`
+arguments.
+
 ## Building the Bundle
 
 To create a `.mcpb` bundle for distribution:
