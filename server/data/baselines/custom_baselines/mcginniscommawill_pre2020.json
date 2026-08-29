@@ -1,0 +1,36 @@
+{
+  "corpus_info": {
+    "name": "mcginniscommawill_pre2020",
+    "description": "Will McGinnis's pre-2020 personal-blog voice (102 posts, 2009-2016), used as a 'does this sound like me' target rather than a generic human-writing baseline. Built with scripts/build_baseline.py; TTR/hapax intentionally excluded as length-confounded.",
+    "sample_size": 102,
+    "language": "en"
+  },
+  "statistics": {
+    "avg_sentence_len": {
+      "mean": 23.277403234827055,
+      "std": 8.512781361857163
+    },
+    "sentence_len_std": {
+      "mean": 15.742315428933884,
+      "std": 12.030001628946655
+    },
+    "fog": {
+      "mean": 14.832526472006203,
+      "std": 6.2491065398864105
+    },
+    "kincaid": {
+      "mean": 12.265476688238154,
+      "std": 5.703569452179479
+    },
+    "pos_ratios": {
+      "ADP": {
+        "mean": 0.11325801142670887,
+        "std": 0.01939653344944812
+      },
+      "DET": {
+        "mean": 0.0953142823966609,
+        "std": 0.02409419026993628
+      }
+    }
+  }
+}

@@ -20,7 +20,7 @@ This server provides the following text analysis tools:
 *   **`keyword_context`**: Extract sentences or phrases where a specific keyword appears.
 *   **`passive_voice_detection`**: Detect passive voice constructions in the text.
 *   **`perplexity_analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2.
-*   **`stylometric_analysis`**: Analyze stylometric features (sentence length, lexical diversity, POS ratios) for AI detection.
+*   **`stylometric_analysis`**: Analyze stylometric features (sentence length, lexical diversity, POS ratios, Fog/Kincaid reading grade) for AI detection, against a built-in or custom baseline.
 
 ## Install
 
@@ -89,6 +89,37 @@ rather than stopping the server.
 `stylometry.features` are accepted and type-checked, but nothing reads them yet; the baseline and
 language are chosen per call through the `stylometric_analysis` and `perplexity_analysis`
 arguments.
+
+## Custom Baselines
+
+`stylometric_analysis` compares a text's features against a baseline (`brown_corpus` by default)
+and flags whatever is an outlier relative to it. Brown Corpus is 1961 published news and fiction;
+it answers "does this read like typical published prose," which is often not the question you
+actually want answered. A more useful question for judging your own drafts is "does this read like
+*my own* pre-existing writing" - answered by building a baseline from a corpus of your own text.
+
+```bash
+uv run scripts/build_baseline.py my_own_voice path/to/txt/files/
+```
+
+Each `*.txt` file in the directory is treated as one document (strip front matter, markdown, and
+code fences first - the script analyzes exactly the text it's given). The baseline is saved under
+`data/baselines/custom_baselines/` and is immediately usable:
+
+```
+stylometric_analysis(text, baseline="my_own_voice")
+```
+
+By default the builder (`server.stylometry.build_baseline_from_texts`) only computes mean/std for
+a curated, length-robust feature set: `avg_sentence_len`, `sentence_len_std`, `fog`, `kincaid`, and
+the `ADP`/`DET` POS ratios. Type-token ratio and the hapax legomena rate are deliberately left out:
+both fall monotonically as a document gets longer, for any author, so comparing them across a
+corpus of mixed document lengths mostly measures length rather than style. Pass `--all-features` to
+opt into the full feature set anyway (including TTR and hapax rate), if you understand that
+tradeoff for your corpus.
+
+`data/baselines/custom_baselines/mcginniscommawill_pre2020.json` ships as a worked example: 102
+pre-2020 posts from [mcginniscommawill.com](https://mcginniscommawill.com), built with this script.
 
 ## Building the Bundle
 
@@ -265,13 +296,13 @@ Below is a detailed reference for each tool provided by the server.
 
 **`stylometric_analysis`**
 
-*   **Description**: Analyze text for stylometric features and detect AI-generated content. Computes sentence length distribution, lexical diversity metrics (TTR, Hapax Legomena), POS ratios, and other stylometric features. Flags outliers relative to human writing baselines using z-score analysis.
+*   **Description**: Analyze text for stylometric features and detect AI-generated content. Computes sentence length distribution, lexical diversity metrics (TTR, Hapax Legomena), POS ratios, Fog/Kincaid reading grade level, and other stylometric features. Flags outliers relative to a baseline (built-in `brown_corpus`, or a [custom baseline](#custom-baselines) built from your own writing) using z-score analysis.
 *   **Parameters**:
     *   `text` (`str`): The text to analyze.
-    *   `baseline` (`str`, optional, default=`"brown_corpus"`): Baseline corpus name for comparison.
+    *   `baseline` (`str`, optional, default=`"brown_corpus"`): Baseline corpus name for comparison. See [Custom Baselines](#custom-baselines) to build your own.
     *   `language` (`str`, optional, default=`"en"`): Language code (only "en" supported currently).
 *   **Returns**: `dict` - Stylometric analysis including:
-    *   `features` (`dict`): Extracted stylometric features (sentence length, TTR, hapax rate, POS ratios, etc.)
+    *   `features` (`dict`): Extracted stylometric features (sentence length, TTR, hapax rate, POS ratios, `fog`/`kincaid` reading grade, etc.)
     *   `z_scores` (`dict`): Z-scores of features against the baseline
     *   `flags` (`dict`): AI detection flags with confidence levels and explanations
     *   `sentence_analysis` (`list`): Per-sentence analysis with z-scores

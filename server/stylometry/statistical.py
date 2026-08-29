@@ -31,6 +31,8 @@ def calculate_z_scores(features: Dict[str, Any], baseline: Dict[str, Any]) -> Di
         "punct_density",
         "comma_ratio",
         "function_word_ratio",
+        "fog",
+        "kincaid",
     ]
 
     for feature in simple_features:
@@ -174,6 +176,15 @@ def generate_flags(
         confidence_score += 0.1
         direction = "low" if z_scores["function_word_ratio"] < 0 else "high"
         reasons.append(f"Unusual function word usage ({direction}, z-score: {z_scores['function_word_ratio']:.2f})")
+
+    # 7. Unusual reading grade level. Gunning Fog is used as the single representative
+    # readability z-score rather than also checking Kincaid: the two are highly
+    # correlated grade-level estimates, and scoring both would double-count one signal.
+    if "fog" in z_scores and abs(z_scores["fog"]) > warning_threshold:
+        ai_indicators.append("unusual_reading_level")
+        confidence_score += 0.15
+        direction = "simpler" if z_scores["fog"] < 0 else "more complex"
+        reasons.append(f"Unusually {direction} reading level (Gunning Fog z-score: {z_scores['fog']:.2f})")
 
     # Cap confidence score at 1.0
     confidence_score = min(confidence_score, 1.0)

@@ -201,6 +201,32 @@ class TestStylemetricAnalyzer:
         result = analyzer._comma_ratio(text)
         assert abs(result - 0.6) < 0.01  # 3/5 = 0.6
 
+    def test_reading_grade_none_for_short_text(self, analyzer):
+        """Fewer than three words is too short for a textstat grade level."""
+        import textstat
+
+        assert analyzer._reading_grade("", textstat.gunning_fog) is None
+        assert analyzer._reading_grade("Two words", textstat.gunning_fog) is None
+
+    def test_reading_grade_scores_real_text(self, analyzer):
+        """A real scorer is applied once the text clears the length floor."""
+        import textstat
+
+        text = "The committee approved the revised budget yesterday after a long debate."
+        result = analyzer._reading_grade(text, textstat.gunning_fog)
+        assert result == textstat.gunning_fog(text)
+
+    def test_extract_features_includes_reading_grades(self, ai_detection_analyzer):
+        """extract_features (via stylometric_analysis) reports fog and kincaid."""
+        text = (
+            "The committee approved the revised budget yesterday. "
+            "The council rejected the amended proposal quickly. "
+            "The board reviewed the updated schedule carefully."
+        )
+        result = ai_detection_analyzer.stylometric_analysis(text)
+        assert result["features"]["fog"] is not None
+        assert result["features"]["kincaid"] is not None
+
 
 class TestBaselineManager:
     """Test the BaselineManager class."""
@@ -395,6 +421,40 @@ class TestStatisticalFunctions:
         assert abs(z_scores["avg_sentence_len"] - 1.0) < 0.01
         assert abs(z_scores["ttr"] - 1.0) < 0.01
         assert abs(z_scores["pos_noun"] - 1.0) < 0.01
+
+    def test_calculate_z_scores_reading_grade(self):
+        """Fog and Kincaid z-score like any other simple feature, when the baseline has them."""
+        baseline = {
+            "fog": {"mean": 11.0, "std": 2.0},
+            "kincaid": {"mean": 9.0, "std": 1.5},
+        }
+        features = {"fog": 15.0, "kincaid": 9.0}  # fog z = (15-11)/2 = 2.0, kincaid z = 0.0
+
+        z_scores = calculate_z_scores(features, baseline)
+
+        assert abs(z_scores["fog"] - 2.0) < 0.01
+        assert abs(z_scores["kincaid"] - 0.0) < 0.01
+
+    def test_calculate_z_scores_reading_grade_absent_from_baseline(self):
+        """Fog/Kincaid are skipped, not defaulted to zero, when the baseline lacks them (e.g. brown_corpus)."""
+        features = {"fog": 15.0, "kincaid": 9.0}
+
+        z_scores = calculate_z_scores(features, SAMPLE_BASELINE["statistics"])
+
+        assert "fog" not in z_scores
+        assert "kincaid" not in z_scores
+
+    def test_generate_flags_unusual_reading_level(self):
+        """A large Fog z-score raises the unusual_reading_level indicator, in either direction."""
+        thresholds = {"warning_z": 2.0, "error_z": 3.0, "ai_confidence_threshold": 0.7}
+
+        simpler = generate_flags({"fog": -2.5}, {"fog": 6.0}, thresholds)
+        assert "unusual_reading_level" in simpler["ai_indicators"]
+        assert "simpler" in simpler["reasons"][0]
+
+        more_complex = generate_flags({"fog": 2.5}, {"fog": 18.0}, thresholds)
+        assert "unusual_reading_level" in more_complex["ai_indicators"]
+        assert "more complex" in more_complex["reasons"][0]
 
     def test_flag_outliers(self):
         """Test outlier flagging."""

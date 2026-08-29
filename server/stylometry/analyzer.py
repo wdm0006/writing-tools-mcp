@@ -10,6 +10,8 @@ import statistics
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
+import textstat
+
 
 class StylemetricAnalyzer:
     """Analyzer for extracting stylometric features from text."""
@@ -158,6 +160,12 @@ class StylemetricAnalyzer:
             "comma_ratio": self._comma_ratio(text),
             # Additional features
             "function_word_ratio": self._function_word_ratio(doc),
+            # Readability grade levels. Unlike TTR/hapax rate, these are not
+            # length-confounded at the document lengths this tool sees in practice:
+            # they're averages over per-sentence syllable/word counts, not a count of
+            # distinct types out of a shrinking-with-length total.
+            "fog": self._reading_grade(text, textstat.gunning_fog),
+            "kincaid": self._reading_grade(text, textstat.flesch_kincaid_grade),
         }
 
     def _empty_features(self) -> Dict[str, Any]:
@@ -173,6 +181,8 @@ class StylemetricAnalyzer:
             "punct_density": 0.0,
             "comma_ratio": 0.0,
             "function_word_ratio": 0.0,
+            "fog": None,
+            "kincaid": None,
         }
 
     def _avg_sentence_length(self, sentences) -> float:
@@ -248,6 +258,13 @@ class StylemetricAnalyzer:
             return 0.0
 
         return statistics.mean(len(word) for word in words)
+
+    def _reading_grade(self, text: str, scorer) -> Optional[float]:
+        """Run a textstat grade-level scorer, or None when the text is too short to score."""
+        if not text or len(text.split()) < 3:
+            return None
+
+        return scorer(text)
 
     def _pos_ratios(self, doc) -> Dict[str, float]:
         """Calculate part-of-speech tag ratios."""
