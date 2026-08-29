@@ -20,7 +20,7 @@ This server provides the following text analysis tools:
 *   **`keyword_context`**: Extract sentences or phrases where a specific keyword appears.
 *   **`passive_voice_detection`**: Detect passive voice constructions in the text.
 *   **`perplexity_analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2.
-*   **`stylometric_analysis`**: Analyze stylometric features (sentence length, lexical diversity, POS ratios, Fog/Kincaid reading grade) for AI detection, against a built-in or custom baseline.
+*   **`stylometric_analysis`**: Analyze stylometric features (sentence length, length-robust lexical diversity, POS ratios, six readability grade-level formulas, syntactic complexity, per-function-word/Burrows' Delta profile) for AI detection, against a built-in or custom baseline.
 
 ## Install
 
@@ -111,12 +111,26 @@ stylometric_analysis(text, baseline="my_own_voice")
 ```
 
 By default the builder (`server.stylometry.build_baseline_from_texts`) only computes mean/std for
-a curated, length-robust feature set: `avg_sentence_len`, `sentence_len_std`, `fog`, `kincaid`, and
-the `ADP`/`DET` POS ratios. Type-token ratio and the hapax legomena rate are deliberately left out:
-both fall monotonically as a document gets longer, for any author, so comparing them across a
-corpus of mixed document lengths mostly measures length rather than style. Pass `--all-features` to
-opt into the full feature set anyway (including TTR and hapax rate), if you understand that
-tradeoff for your corpus.
+a curated, length-robust feature set: `avg_sentence_len`, `sentence_len_std`, `fog`/`kincaid`/`smog`/
+`coleman_liau`/`ari`/`dale_chall` (six readability grade-level formulas), `mtld`/`mattr` (length-robust
+lexical diversity), `mean_dependency_distance`/`subordinate_clause_ratio` (syntactic complexity read
+off the dependency parse), the `ADP`/`DET` POS ratios, and a Burrows'-Delta-style per-function-word
+frequency profile (see below). Type-token ratio and the hapax legomena rate are deliberately left
+out: both fall monotonically as a document gets longer, for any author, so comparing them across a
+corpus of mixed document lengths mostly measures length rather than style - `mtld` and `mattr` exist
+specifically as length-robust replacements for them (McCarthy & Jarvis 2010; Covington & McFall 2010).
+`fourgram_repetition_rate` and `zipf_slope` are computed but *not* in the default set: unlike
+ttr/hapax, we haven't verified whether they vary with length, so they're opt-in only. Pass
+`--all-features` to include every feature `extract_features` computes, length-confounded or not.
+
+**Burrows' Delta.** Rather than one aggregate `function_word_ratio`, the builder also tracks each of
+`StylemetricAnalyzer`'s ~100 function words individually (mean/std per word across the corpus).
+`stylometric_analysis` z-scores each word against its own baseline entry, then reduces all of them
+to one number - `burrows_delta`, the mean absolute z-score across every word scored - the classic
+Burrows' Delta statistic (Burrows 2002), built for exactly this kind of small, single-author corpus.
+A large `burrows_delta` (above the usual warning z-threshold) raises a `distinct_function_word_profile`
+flag. Pass `function_words=[]` to `build_baseline_from_texts` (or a custom word list) to change or
+skip this dimension.
 
 `data/baselines/custom_baselines/mcginniscommawill_pre2020.json` ships as a worked example: 102
 pre-2020 posts from [mcginniscommawill.com](https://mcginniscommawill.com), built with this script.
@@ -296,14 +310,14 @@ Below is a detailed reference for each tool provided by the server.
 
 **`stylometric_analysis`**
 
-*   **Description**: Analyze text for stylometric features and detect AI-generated content. Computes sentence length distribution, lexical diversity metrics (TTR, Hapax Legomena), POS ratios, Fog/Kincaid reading grade level, and other stylometric features. Flags outliers relative to a baseline (built-in `brown_corpus`, or a [custom baseline](#custom-baselines) built from your own writing) using z-score analysis.
+*   **Description**: Analyze text for stylometric features and detect AI-generated content. Computes sentence length distribution, lexical diversity (TTR/Hapax, plus the length-robust `mtld`/`mattr`), POS ratios, six readability grade-level formulas (Fog, Kincaid, SMOG, Coleman-Liau, ARI, Dale-Chall), syntactic complexity from the dependency parse (`mean_dependency_distance`, `subordinate_clause_ratio`), n-gram repetition and Zipf-slope, and a per-function-word frequency profile reduced to a Burrows' Delta score. Flags outliers relative to a baseline (built-in `brown_corpus`, or a [custom baseline](#custom-baselines) built from your own writing) using z-score analysis.
 *   **Parameters**:
     *   `text` (`str`): The text to analyze.
     *   `baseline` (`str`, optional, default=`"brown_corpus"`): Baseline corpus name for comparison. See [Custom Baselines](#custom-baselines) to build your own.
     *   `language` (`str`, optional, default=`"en"`): Language code (only "en" supported currently).
 *   **Returns**: `dict` - Stylometric analysis including:
-    *   `features` (`dict`): Extracted stylometric features (sentence length, TTR, hapax rate, POS ratios, `fog`/`kincaid` reading grade, etc.)
-    *   `z_scores` (`dict`): Z-scores of features against the baseline
+    *   `features` (`dict`): Extracted stylometric features (sentence length, TTR/hapax/`mtld`/`mattr`, POS ratios, `fog`/`kincaid`/`smog`/`coleman_liau`/`ari`/`dale_chall`, `mean_dependency_distance`, `subordinate_clause_ratio`, `fourgram_repetition_rate`, `zipf_slope`, `function_word_freqs`, etc.)
+    *   `z_scores` (`dict`): Z-scores of features against the baseline, including per-word `fw_<word>` scores and the aggregate `burrows_delta`
     *   `flags` (`dict`): AI detection flags with confidence levels and explanations
     *   `sentence_analysis` (`list`): Per-sentence analysis with z-scores
     *   `config` (`dict`): Baseline information and analysis thresholds

@@ -33,6 +33,16 @@ def calculate_z_scores(features: Dict[str, Any], baseline: Dict[str, Any]) -> Di
         "function_word_ratio",
         "fog",
         "kincaid",
+        "mtld",
+        "mattr",
+        "smog",
+        "coleman_liau",
+        "ari",
+        "dale_chall",
+        "mean_dependency_distance",
+        "subordinate_clause_ratio",
+        "fourgram_repetition_rate",
+        "zipf_slope",
     ]
 
     for feature in simple_features:
@@ -74,6 +84,32 @@ def calculate_z_scores(features: Dict[str, Any], baseline: Dict[str, Any]) -> Di
                         z_scores[f"pos_{pos_tag.lower()}"] = z_score
                     else:
                         z_scores[f"pos_{pos_tag.lower()}"] = 0.0
+
+    # Handle per-function-word frequencies (Burrows' Delta): score each tracked word
+    # individually against the baseline, then reduce all of them to one aggregate
+    # distance - the mean absolute z-score across every word actually scored. This is
+    # Burrows' Delta's own definition, just built on top of the same z-scoring already
+    # done per word, rather than a separate statistic.
+    if "function_word_freqs" in features and "function_word_freqs" in baseline:
+        feature_freqs = features["function_word_freqs"]
+        baseline_freqs = baseline["function_word_freqs"]
+        word_z_scores = []
+
+        for word, baseline_stats in baseline_freqs.items():
+            if word not in feature_freqs:
+                continue
+            feature_value = feature_freqs[word]
+            if not (isinstance(baseline_stats, dict) and "mean" in baseline_stats and "std" in baseline_stats):
+                continue
+
+            mean = baseline_stats["mean"]
+            std = baseline_stats["std"]
+            z_score = (feature_value - mean) / std if std > 0 else 0.0
+            z_scores[f"fw_{word}"] = z_score
+            word_z_scores.append(z_score)
+
+        if word_z_scores:
+            z_scores["burrows_delta"] = sum(abs(z) for z in word_z_scores) / len(word_z_scores)
 
     return z_scores
 
@@ -178,13 +214,32 @@ def generate_flags(
         reasons.append(f"Unusual function word usage ({direction}, z-score: {z_scores['function_word_ratio']:.2f})")
 
     # 7. Unusual reading grade level. Gunning Fog is used as the single representative
-    # readability z-score rather than also checking Kincaid: the two are highly
-    # correlated grade-level estimates, and scoring both would double-count one signal.
+    # readability z-score rather than also checking Kincaid, SMOG, Coleman-Liau, ARI, or
+    # Dale-Chall: all are correlated grade-level/complexity estimates, and scoring more
+    # than one would double-count what is really a single underlying signal.
     if "fog" in z_scores and abs(z_scores["fog"]) > warning_threshold:
         ai_indicators.append("unusual_reading_level")
         confidence_score += 0.15
         direction = "simpler" if z_scores["fog"] < 0 else "more complex"
         reasons.append(f"Unusually {direction} reading level (Gunning Fog z-score: {z_scores['fog']:.2f})")
+
+    # 8. Low MTLD: a length-robust lexical-diversity check, alongside (not replacing)
+    # the raw-TTR check above - MTLD is the more reliable of the two at varying
+    # document lengths, but TTR is cheap to keep scoring wherever a baseline has it.
+    if "mtld" in z_scores and z_scores["mtld"] < -warning_threshold:
+        ai_indicators.append("low_mtld")
+        confidence_score += 0.25
+        reasons.append(f"Low length-robust lexical diversity (MTLD z-score: {z_scores['mtld']:.2f})")
+
+    # 9. Burrows' Delta: mean absolute z-score across individually-tracked function
+    # words. Delta itself is already a magnitude (mean of absolute values), so it's
+    # compared directly against warning_threshold rather than via abs().
+    if "burrows_delta" in z_scores and z_scores["burrows_delta"] > warning_threshold:
+        ai_indicators.append("distinct_function_word_profile")
+        confidence_score += 0.2
+        reasons.append(
+            f"Function-word usage differs sharply from baseline (Burrows' Delta: {z_scores['burrows_delta']:.2f})"
+        )
 
     # Cap confidence score at 1.0
     confidence_score = min(confidence_score, 1.0)

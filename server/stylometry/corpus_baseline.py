@@ -18,6 +18,14 @@ differences as if they were style differences. ``DEFAULT_ROBUST_FEATURES`` and
 ``DEFAULT_ROBUST_POS_TAGS`` exclude those two features (and every POS tag other
 than ADP/DET) for that reason; pass ``ALL_SIMPLE_FEATURES`` explicitly to opt
 back into the full, length-confounded feature set.
+
+``mtld`` and ``mattr`` exist specifically to replace ``ttr``/``hapax_legomena_rate``
+with length-robust alternatives (McCarthy & Jarvis 2010; Covington & McFall 2010) and
+are in the default set on that basis. ``fourgram_repetition_rate`` and ``zipf_slope``
+are *not* in the default set: unlike ttr/hapax, we have not empirically checked
+whether they vary with document length in this tool's corpora, so treat their
+absence from ``DEFAULT_ROBUST_FEATURES`` as "unverified," not "known bad" - they're
+available in ``ALL_SIMPLE_FEATURES`` for anyone who wants to check.
 """
 
 import statistics
@@ -31,6 +39,14 @@ DEFAULT_ROBUST_FEATURES = [
     "sentence_len_std",
     "fog",
     "kincaid",
+    "mtld",
+    "mattr",
+    "smog",
+    "coleman_liau",
+    "ari",
+    "dale_chall",
+    "mean_dependency_distance",
+    "subordinate_clause_ratio",
 ]
 
 #: POS tags safe to average across documents of varying length.
@@ -49,6 +65,16 @@ ALL_SIMPLE_FEATURES = [
     "function_word_ratio",
     "fog",
     "kincaid",
+    "mtld",
+    "mattr",
+    "smog",
+    "coleman_liau",
+    "ari",
+    "dale_chall",
+    "mean_dependency_distance",
+    "subordinate_clause_ratio",
+    "fourgram_repetition_rate",
+    "zipf_slope",
 ]
 
 
@@ -58,6 +84,7 @@ def build_baseline_from_texts(
     corpus_info: Optional[Dict[str, Any]] = None,
     features: Optional[List[str]] = None,
     pos_tags: Optional[List[str]] = None,
+    function_words: Optional[List[str]] = None,
     min_words: int = 50,
 ) -> Dict[str, Any]:
     """
@@ -81,6 +108,10 @@ def build_baseline_from_texts(
             `ttr` and `hapax_legomena_rate` (see module docstring).
         pos_tags: Which spaCy POS tags to include as `pos_ratios`. Defaults to
             `DEFAULT_ROBUST_POS_TAGS`.
+        function_words: Which function words to track individually for the
+            Burrows'-Delta-style `function_word_freqs` baseline. Defaults to every
+            word `StylemetricAnalyzer` already tracks (its `function_words` set).
+            Pass an empty list to skip this baseline dimension entirely.
         min_words: Documents shorter than this (by whitespace-split word count) are
             dropped before computing statistics.
 
@@ -102,6 +133,7 @@ def build_baseline_from_texts(
         )
 
     analyzer = StylemetricAnalyzer(nlp_model)
+    function_words = list(analyzer.function_words) if function_words is None else list(function_words)
     per_doc_features = [analyzer.extract_features(text) for text in kept_texts]
 
     statistics_out: Dict[str, Any] = {}
@@ -119,6 +151,17 @@ def build_baseline_from_texts(
         pos_ratios_out[tag] = {"mean": statistics.mean(values), "std": statistics.stdev(values)}
     if pos_ratios_out:
         statistics_out["pos_ratios"] = pos_ratios_out
+
+    function_word_freqs_out: Dict[str, Any] = {}
+    for word in function_words:
+        values = [
+            doc["function_word_freqs"][word] for doc in per_doc_features if word in doc.get("function_word_freqs", {})
+        ]
+        if len(values) < 2:
+            continue
+        function_word_freqs_out[word] = {"mean": statistics.mean(values), "std": statistics.stdev(values)}
+    if function_word_freqs_out:
+        statistics_out["function_word_freqs"] = function_word_freqs_out
 
     info = dict(corpus_info or {})
     info.setdefault("sample_size", len(kept_texts))

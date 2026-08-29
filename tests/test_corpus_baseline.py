@@ -25,6 +25,23 @@ TEST_MIN_WORDS = 20
 
 TOO_SHORT_DOC = "Way too short."
 
+# mtld/mattr need >= 50 tokens per document (see StylemetricAnalyzer), longer than
+# every DOCS entry above, so they get their own fixture rather than reusing DOCS.
+LONG_DOCS = [
+    "Rain fell across the valley for three straight days, and farmers watched the river "
+    "rise past the old stone bridge, worried about the low fields near the mill. By the "
+    "fourth morning the water had receded, leaving a fine silt over everything it touched, "
+    "and the road crews spent the rest of the week clearing debris from the culverts.",
+    "Engineers traced a strange noise in the new engine to a bearing that had been "
+    "over-torqued at assembly, and the fix shipped within a week once the root cause was "
+    "confirmed by testing. Nobody had expected a torque spec to be the culprit, least of "
+    "all the technician who had signed off on the original build sheet.",
+    "She spent the summer rebuilding a porch her grandfather had built decades earlier, and "
+    "by August the railing stood square again, a small stubborn victory against years of "
+    "weather that had worn the old one down. Neighbors stopped to admire the joinery, and "
+    "she found herself explaining the same three cuts to nearly all of them.",
+]
+
 
 class TestBuildBaselineFromTexts:
     def test_raises_with_fewer_than_two_qualifying_documents(self, nlp):
@@ -41,6 +58,34 @@ class TestBuildBaselineFromTexts:
         assert "kincaid" in stats
         assert "ttr" not in stats
         assert "hapax_legomena_rate" not in stats
+
+    def test_default_features_include_new_length_robust_additions(self, nlp):
+        baseline = build_baseline_from_texts(DOCS, nlp, min_words=TEST_MIN_WORDS)
+        stats = baseline["statistics"]
+
+        for key in (
+            "smog",
+            "coleman_liau",
+            "ari",
+            "dale_chall",
+            "mean_dependency_distance",
+            "subordinate_clause_ratio",
+        ):
+            assert key in stats
+
+    def test_default_features_include_mtld_and_mattr_given_long_enough_docs(self, nlp):
+        baseline = build_baseline_from_texts(LONG_DOCS, nlp, min_words=TEST_MIN_WORDS)
+        stats = baseline["statistics"]
+
+        assert "mtld" in stats
+        assert "mattr" in stats
+
+    def test_all_simple_features_includes_repetition_and_zipf(self, nlp):
+        baseline = build_baseline_from_texts(DOCS, nlp, features=ALL_SIMPLE_FEATURES, min_words=TEST_MIN_WORDS)
+        stats = baseline["statistics"]
+
+        assert "fourgram_repetition_rate" in stats
+        assert "zipf_slope" in stats
 
     def test_default_pos_tags_are_adp_and_det_only(self, nlp):
         baseline = build_baseline_from_texts(DOCS, nlp, min_words=TEST_MIN_WORDS)
@@ -85,3 +130,34 @@ class TestBuildBaselineFromTexts:
 
         assert set(z_scores.keys()) >= {"avg_sentence_len", "sentence_len_std", "fog", "kincaid"}
         assert "ttr" not in z_scores
+
+
+class TestFunctionWordBaseline:
+    """Burrows'-Delta-style per-function-word baseline dimension."""
+
+    def test_default_builds_function_word_freqs_for_every_tracked_word(self, nlp):
+        from server.stylometry import StylemetricAnalyzer
+
+        analyzer = StylemetricAnalyzer(nlp)
+        baseline = build_baseline_from_texts(DOCS, nlp, min_words=TEST_MIN_WORDS)
+
+        assert set(baseline["statistics"]["function_word_freqs"].keys()) == analyzer.function_words
+
+    def test_empty_list_skips_the_dimension_entirely(self, nlp):
+        baseline = build_baseline_from_texts(DOCS, nlp, function_words=[], min_words=TEST_MIN_WORDS)
+        assert "function_word_freqs" not in baseline["statistics"]
+
+    def test_custom_subset_is_respected(self, nlp):
+        baseline = build_baseline_from_texts(DOCS, nlp, function_words=["the", "of"], min_words=TEST_MIN_WORDS)
+        assert set(baseline["statistics"]["function_word_freqs"].keys()) == {"the", "of"}
+
+    def test_built_baseline_scores_burrows_delta_on_a_real_draft(self, nlp):
+        from server.stylometry import StylemetricAnalyzer, calculate_z_scores
+
+        baseline = build_baseline_from_texts(DOCS, nlp, min_words=TEST_MIN_WORDS)
+        features = StylemetricAnalyzer(nlp).extract_features(DOCS[0])
+
+        z_scores = calculate_z_scores(features, baseline["statistics"])
+
+        assert "burrows_delta" in z_scores
+        assert z_scores["burrows_delta"] >= 0
