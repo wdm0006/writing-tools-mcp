@@ -9,6 +9,7 @@ import torch
 from server.stylometry import (
     BaselineManager,
     StylemetricAnalyzer,
+    calculate_char_ngram_similarity,
     calculate_sentence_z_scores,
     calculate_z_scores,
     generate_flags,
@@ -170,6 +171,7 @@ class AIDetectionAnalyzer:
                 "z_scores": {},
                 "flags": {"high_ai_probability": False, "reasons": []},
                 "sentence_analysis": [],
+                "char_ngram_similarity": None,
                 "config": {},
             }
 
@@ -180,6 +182,7 @@ class AIDetectionAnalyzer:
                 "z_scores": {},
                 "flags": {"high_ai_probability": False, "reasons": []},
                 "sentence_analysis": [],
+                "char_ngram_similarity": None,
                 "config": {},
             }
 
@@ -201,6 +204,7 @@ class AIDetectionAnalyzer:
                     "z_scores": {},
                     "flags": {"high_ai_probability": False, "reasons": []},
                     "sentence_analysis": [],
+                    "char_ngram_similarity": None,
                     "config": {"baseline": baseline, "thresholds": thresholds},
                 }
 
@@ -218,10 +222,20 @@ class AIDetectionAnalyzer:
                 features.get("sentence_positions", []), baseline_stats.get("avg_sentence_len", {})
             )
 
-            # Round numerical values for cleaner output
+            # Character n-gram profile similarity: a whole-profile comparison, not a
+            # per-key z-score, so it's computed separately and reported alongside
+            # z_scores rather than folded into it.
+            char_ngram_similarity = calculate_char_ngram_similarity(features, baseline_stats)
+
+            # Round numerical values for cleaner output. char_ngram_profile is dropped
+            # here rather than rounded: it's an internal, several-hundred-entry
+            # intermediate for char_ngram_similarity above, not something a caller
+            # needs to see key-by-key.
             rounded_features = {}
             for key, value in features.items():
-                if key == "sentence_positions":
+                if key == "char_ngram_profile":
+                    continue
+                elif key == "sentence_positions":
                     rounded_features[key] = value  # Keep as-is, already processed
                 elif key == "pos_ratios":
                     rounded_features[key] = {k: round(v, 3) for k, v in value.items()}
@@ -237,6 +251,7 @@ class AIDetectionAnalyzer:
                 "z_scores": rounded_z_scores,
                 "flags": flags,
                 "sentence_analysis": sentence_analysis,
+                "char_ngram_similarity": round(char_ngram_similarity, 3) if char_ngram_similarity is not None else None,
                 "config": {
                     "baseline": baseline,
                     "baseline_info": baseline_data.get("corpus_info", {}),
@@ -252,6 +267,7 @@ class AIDetectionAnalyzer:
                 "z_scores": {},
                 "flags": {"high_ai_probability": False, "reasons": []},
                 "sentence_analysis": [],
+                "char_ngram_similarity": None,
                 "config": {"baseline": baseline, "thresholds": thresholds},
             }
 

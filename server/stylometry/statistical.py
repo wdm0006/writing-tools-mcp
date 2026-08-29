@@ -5,7 +5,8 @@ This module provides functions for calculating z-scores against baselines,
 flagging outliers, and generating AI detection confidence scores.
 """
 
-from typing import Any, Dict, List
+import math
+from typing import Any, Dict, List, Optional
 
 
 def calculate_z_scores(features: Dict[str, Any], baseline: Dict[str, Any]) -> Dict[str, float]:
@@ -43,6 +44,17 @@ def calculate_z_scores(features: Dict[str, Any], baseline: Dict[str, Any]) -> Di
         "subordinate_clause_ratio",
         "fourgram_repetition_rate",
         "zipf_slope",
+        "mtld_lemma",
+        "mean_word_frequency",
+        "word_len_std",
+        "lexical_density",
+        "semicolon_ratio",
+        "em_dash_ratio",
+        "ellipsis_ratio",
+        "exclamation_ratio",
+        "parenthetical_rate",
+        "hedge_rate",
+        "booster_rate",
     ]
 
     for feature in simple_features:
@@ -85,6 +97,25 @@ def calculate_z_scores(features: Dict[str, Any], baseline: Dict[str, Any]) -> Di
                     else:
                         z_scores[f"pos_{pos_tag.lower()}"] = 0.0
 
+    # Handle POS bigram ratios the same way, under a distinct "posbi_" prefix so they
+    # don't collide with (or get double-counted alongside) the unigram pos_ scores.
+    if "pos_bigram_ratios" in features and "pos_bigram_ratios" in baseline:
+        feature_bigrams = features["pos_bigram_ratios"]
+        baseline_bigrams = baseline["pos_bigram_ratios"]
+
+        for bigram, baseline_stats in baseline_bigrams.items():
+            if bigram in feature_bigrams:
+                feature_value = feature_bigrams[bigram]
+                if isinstance(baseline_stats, dict) and "mean" in baseline_stats and "std" in baseline_stats:
+                    mean = baseline_stats["mean"]
+                    std = baseline_stats["std"]
+
+                    if std > 0:
+                        z_score = (feature_value - mean) / std
+                        z_scores[f"posbi_{bigram.lower()}"] = z_score
+                    else:
+                        z_scores[f"posbi_{bigram.lower()}"] = 0.0
+
     # Handle per-function-word frequencies (Burrows' Delta): score each tracked word
     # individually against the baseline, then reduce all of them to one aggregate
     # distance - the mean absolute z-score across every word actually scored. This is
@@ -112,6 +143,42 @@ def calculate_z_scores(features: Dict[str, Any], baseline: Dict[str, Any]) -> Di
             z_scores["burrows_delta"] = sum(abs(z) for z in word_z_scores) / len(word_z_scores)
 
     return z_scores
+
+
+def calculate_char_ngram_similarity(features: Dict[str, Any], baseline: Dict[str, Any]) -> Optional[float]:
+    """
+    Cosine similarity between a document's character n-gram profile and a baseline's.
+
+    Unlike every other feature here, an individual character n-gram is too sparse per
+    document to z-score on its own (most 4-grams occur 0-2 times in an 800-word post),
+    so this compares the whole profile's shape via cosine similarity instead - the
+    PAN/CLEF authorship-attribution baseline approach. 1.0 is identical in shape to the
+    baseline corpus; lower values mean an orthographically different profile. None when
+    either side has no profile to compare.
+
+    Args:
+        features: Dictionary of extracted stylometric features
+        baseline: Dictionary of baseline statistics
+
+    Returns:
+        Cosine similarity in [0, 1] (both vectors are non-negative frequencies), or
+        None if it can't be computed
+    """
+    feature_profile = features.get("char_ngram_profile")
+    baseline_profile = baseline.get("char_ngram_profile")
+
+    if not feature_profile or not baseline_profile:
+        return None
+
+    ngrams = set(feature_profile) | set(baseline_profile)
+    dot_product = sum(feature_profile.get(ngram, 0.0) * baseline_profile.get(ngram, 0.0) for ngram in ngrams)
+    feature_norm = math.sqrt(sum(value**2 for value in feature_profile.values()))
+    baseline_norm = math.sqrt(sum(value**2 for value in baseline_profile.values()))
+
+    if feature_norm == 0 or baseline_norm == 0:
+        return None
+
+    return dot_product / (feature_norm * baseline_norm)
 
 
 def flag_outliers(
@@ -194,11 +261,11 @@ def generate_flags(
         direction = "short" if z_scores["avg_sentence_len"] < 0 else "long"
         reasons.append(f"Unusually {direction} sentences (avg length z-score: {z_scores['avg_sentence_len']:.2f})")
 
-    # 5. Check POS ratio anomalies
+    # 5. Check POS ratio anomalies (both single-tag pos_* and bigram posbi_* scores)
     pos_anomalies = []
     for feature, z_score in z_scores.items():
-        if feature.startswith("pos_") and abs(z_score) > warning_threshold:
-            pos_tag = feature.replace("pos_", "").upper()
+        if feature.startswith(("pos_", "posbi_")) and abs(z_score) > warning_threshold:
+            pos_tag = feature.split("_", 1)[1].upper()
             pos_anomalies.append(f"{pos_tag}: {z_score:.2f}")
             confidence_score += 0.1
 
@@ -240,6 +307,29 @@ def generate_flags(
         reasons.append(
             f"Function-word usage differs sharply from baseline (Burrows' Delta: {z_scores['burrows_delta']:.2f})"
         )
+
+    # 10. Unusual vocabulary rarity (mean Zipf frequency, via `wordfreq`) - distinct
+    # from the diversity checks above: this is about how *common* the words used are,
+    # not how many distinct words there are.
+    if "mean_word_frequency" in z_scores and abs(z_scores["mean_word_frequency"]) > warning_threshold:
+        ai_indicators.append("unusual_vocabulary_rarity")
+        confidence_score += 0.15
+        direction = "rarer" if z_scores["mean_word_frequency"] < 0 else "more common"
+        reasons.append(
+            f"Unusually {direction} vocabulary (mean word-frequency z-score: {z_scores['mean_word_frequency']:.2f})"
+        )
+
+    # 11-12. Hedge/booster rate anomalies - two separate epistemic-marker categories,
+    # not two views of one signal, so both get their own indicator.
+    if "hedge_rate" in z_scores and abs(z_scores["hedge_rate"]) > warning_threshold:
+        ai_indicators.append("unusual_hedge_rate")
+        confidence_score += 0.1
+        reasons.append(f"Unusual hedge-word usage (z-score: {z_scores['hedge_rate']:.2f})")
+
+    if "booster_rate" in z_scores and abs(z_scores["booster_rate"]) > warning_threshold:
+        ai_indicators.append("unusual_booster_rate")
+        confidence_score += 0.1
+        reasons.append(f"Unusual booster-word usage (z-score: {z_scores['booster_rate']:.2f})")
 
     # Cap confidence score at 1.0
     confidence_score = min(confidence_score, 1.0)

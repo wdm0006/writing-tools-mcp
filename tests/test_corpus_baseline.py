@@ -79,6 +79,25 @@ class TestBuildBaselineFromTexts:
 
         assert "mtld" in stats
         assert "mattr" in stats
+        assert "mtld_lemma" in stats
+
+    def test_default_features_include_second_round_additions(self, nlp):
+        baseline = build_baseline_from_texts(DOCS, nlp, min_words=TEST_MIN_WORDS)
+        stats = baseline["statistics"]
+
+        for key in (
+            "mean_word_frequency",
+            "word_len_std",
+            "lexical_density",
+            "semicolon_ratio",
+            "em_dash_ratio",
+            "ellipsis_ratio",
+            "exclamation_ratio",
+            "parenthetical_rate",
+            "hedge_rate",
+            "booster_rate",
+        ):
+            assert key in stats
 
     def test_all_simple_features_includes_repetition_and_zipf(self, nlp):
         baseline = build_baseline_from_texts(DOCS, nlp, features=ALL_SIMPLE_FEATURES, min_words=TEST_MIN_WORDS)
@@ -161,3 +180,48 @@ class TestFunctionWordBaseline:
 
         assert "burrows_delta" in z_scores
         assert z_scores["burrows_delta"] >= 0
+
+
+class TestPOSBigramBaseline:
+    def test_default_builds_ten_curated_bigrams(self, nlp):
+        from server.stylometry.corpus_baseline import DEFAULT_ROBUST_POS_BIGRAMS
+
+        baseline = build_baseline_from_texts(DOCS, nlp, min_words=TEST_MIN_WORDS)
+        built = set(baseline["statistics"]["pos_bigram_ratios"].keys())
+
+        assert built <= set(DEFAULT_ROBUST_POS_BIGRAMS)
+        assert built  # at least some of the curated bigrams appear in this small corpus
+
+    def test_empty_list_skips_the_dimension(self, nlp):
+        baseline = build_baseline_from_texts(DOCS, nlp, pos_bigrams=[], min_words=TEST_MIN_WORDS)
+        assert "pos_bigram_ratios" not in baseline["statistics"]
+
+    def test_custom_subset_is_respected(self, nlp):
+        baseline = build_baseline_from_texts(DOCS, nlp, pos_bigrams=["DET_NOUN"], min_words=TEST_MIN_WORDS)
+        assert set(baseline["statistics"]["pos_bigram_ratios"].keys()) <= {"DET_NOUN"}
+
+
+class TestCharNgramBaseline:
+    def test_default_builds_a_profile(self, nlp):
+        baseline = build_baseline_from_texts(DOCS, nlp, min_words=TEST_MIN_WORDS)
+        assert "char_ngram_profile" in baseline["statistics"]
+        assert len(baseline["statistics"]["char_ngram_profile"]) > 0
+
+    def test_top_k_bounds_the_profile_size(self, nlp):
+        baseline = build_baseline_from_texts(DOCS, nlp, char_ngram_top_k=5, min_words=TEST_MIN_WORDS)
+        assert len(baseline["statistics"]["char_ngram_profile"]) <= 5
+
+    def test_zero_top_k_skips_the_dimension(self, nlp):
+        baseline = build_baseline_from_texts(DOCS, nlp, char_ngram_top_k=0, min_words=TEST_MIN_WORDS)
+        assert "char_ngram_profile" not in baseline["statistics"]
+
+    def test_built_profile_scores_similarity_on_a_real_draft(self, nlp):
+        from server.stylometry import StylemetricAnalyzer, calculate_char_ngram_similarity
+
+        baseline = build_baseline_from_texts(DOCS, nlp, min_words=TEST_MIN_WORDS)
+        features = StylemetricAnalyzer(nlp).extract_features(DOCS[0])
+
+        similarity = calculate_char_ngram_similarity(features, baseline["statistics"])
+
+        assert similarity is not None
+        assert 0.0 <= similarity <= 1.0

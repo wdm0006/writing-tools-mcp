@@ -5,6 +5,7 @@
 #   "fastmcp>=3.4.5,<4.0.0",
 #   "pyspellchecker",
 #   "textstat",
+#   "wordfreq",
 #   "spacy",
 #   "markdown-it-py",
 #   "requests",

@@ -2,7 +2,12 @@
 Burrows'-Delta-style features added on top of the original stylometric feature set.
 """
 
-from server.stylometry import StylemetricAnalyzer, calculate_z_scores, generate_flags
+from server.stylometry import (
+    StylemetricAnalyzer,
+    calculate_char_ngram_similarity,
+    calculate_z_scores,
+    generate_flags,
+)
 
 REPETITIVE_TEXT = " ".join(["the cat sat on the mat and the cat slept"] * 8)
 
@@ -64,6 +69,23 @@ class TestReadabilityAdditions:
 
         for key in ("smog", "coleman_liau", "ari", "dale_chall"):
             assert features[key] is not None
+
+
+class TestStylometricAnalysisCharNgramWiring:
+    def test_char_ngram_similarity_none_without_baseline_profile(self, ai_detection_analyzer):
+        """brown_corpus has no char_ngram_profile, so the tool-level result is None,
+        not an error - actual similarity computation is covered in test_corpus_baseline.py."""
+        result = ai_detection_analyzer.stylometric_analysis(DIVERSE_TEXT, baseline="brown_corpus")
+
+        assert "error" not in result
+        assert result["char_ngram_similarity"] is None
+
+    def test_char_ngram_profile_excluded_from_returned_features(self, ai_detection_analyzer):
+        """The raw several-hundred-entry profile is an internal intermediate, not
+        something a caller needs to see key-by-key in the features dict."""
+        result = ai_detection_analyzer.stylometric_analysis(DIVERSE_TEXT)
+
+        assert "char_ngram_profile" not in result["features"]
 
 
 class TestSyntacticComplexity:
@@ -161,3 +183,165 @@ class TestBurrowsDeltaScoring:
         flags = generate_flags({"burrows_delta": 0.5}, {}, thresholds)
 
         assert "distinct_function_word_profile" not in flags["ai_indicators"]
+
+
+RARE_VOCAB_TEXT = (
+    "Sesquipedalian loquaciousness pervaded the peroration, replete with abstruse "
+    "circumlocutions that obfuscated any perspicuous meaning whatsoever, rendering the "
+    "prolix disquisition nearly incomprehensible to the assembled cognoscenti."
+)
+
+COMMON_VOCAB_TEXT = (
+    "The dog ran to the door and the cat sat by the window. It was a good day for a walk, "
+    "and the kids went out to play in the yard with the ball."
+)
+
+BRITISH_STYLE_TEXT = (
+    "We tend to organise our colour palette around a few favourites, and we recognise the "
+    "risk that some readers may not realise how much analysing the data actually takes."
+)
+
+
+class TestVocabularySophistication:
+    def test_mtld_lemma_present_for_long_text(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features(DIVERSE_TEXT * 2)
+        assert features["mtld_lemma"] is not None
+
+    def test_mtld_lemma_none_below_fifty_tokens(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features("This is a short document, nowhere near fifty words long.")
+        assert features["mtld_lemma"] is None
+
+    def test_mean_word_frequency_lower_for_rare_vocabulary(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        rare = analyzer.extract_features(RARE_VOCAB_TEXT)
+        common = analyzer.extract_features(COMMON_VOCAB_TEXT)
+
+        assert rare["mean_word_frequency"] is not None
+        assert common["mean_word_frequency"] is not None
+        assert rare["mean_word_frequency"] < common["mean_word_frequency"]
+
+    def test_word_len_std_none_for_single_word(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features("Word.")
+        assert features["word_len_std"] is None
+
+    def test_lexical_density_in_unit_range(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features(DIVERSE_TEXT)
+        assert 0.0 <= features["lexical_density"] <= 1.0
+
+
+class TestPOSBigrams:
+    def test_pos_bigram_ratios_sum_to_approximately_one(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features(DIVERSE_TEXT)
+        assert abs(sum(features["pos_bigram_ratios"].values()) - 1.0) < 0.01
+
+    def test_calculate_z_scores_handles_pos_bigrams(self):
+        baseline = {"pos_bigram_ratios": {"DET_NOUN": {"mean": 0.1, "std": 0.02}}}
+        features = {"pos_bigram_ratios": {"DET_NOUN": 0.14}}  # z = 2.0
+
+        z_scores = calculate_z_scores(features, baseline)
+
+        assert abs(z_scores["posbi_det_noun"] - 2.0) < 0.01
+
+    def test_generate_flags_pos_anomalies_covers_bigrams(self):
+        thresholds = {"warning_z": 2.0, "error_z": 3.0, "ai_confidence_threshold": 0.7}
+        flags = generate_flags({"posbi_det_noun": 2.5}, {}, thresholds)
+
+        assert "pos_anomalies" in flags["ai_indicators"]
+        assert any("DET_NOUN" in reason for reason in flags["reasons"])
+
+
+class TestPunctuationIdiosyncrasies:
+    def test_semicolon_ratio_detects_semicolons(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        with_semi = analyzer.extract_features("This works; that also works. Fine, then.")
+        without_semi = analyzer.extract_features("This works. That also works. Fine, then.")
+
+        assert with_semi["semicolon_ratio"] > without_semi["semicolon_ratio"]
+        assert without_semi["semicolon_ratio"] == 0.0
+
+    def test_em_dash_ratio_detects_em_dashes(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features("This works — that also works. Fine, then.")
+        assert features["em_dash_ratio"] > 0.0
+
+    def test_ellipsis_ratio_detects_both_forms(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        literal = analyzer.extract_features("Well... that happened. Sure, fine.")
+        unicode_form = analyzer.extract_features("Well… that happened. Sure, fine.")
+
+        assert literal["ellipsis_ratio"] > 0.0
+        assert unicode_form["ellipsis_ratio"] > 0.0
+
+    def test_exclamation_ratio_detects_exclamations(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features("This is great! Really great. Truly.")
+        assert features["exclamation_ratio"] > 0.0
+
+    def test_parenthetical_rate_detects_parens(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        with_parens = analyzer.extract_features("This works (mostly). That also works. Fine.")
+        without_parens = analyzer.extract_features("This works fine. That also works. Fine.")
+
+        assert with_parens["parenthetical_rate"] > without_parens["parenthetical_rate"]
+        assert without_parens["parenthetical_rate"] == 0.0
+
+
+class TestHedgeAndBoosterRate:
+    def test_hedge_rate_detects_hedge_words(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        hedged = analyzer.extract_features("This might possibly work, and it could perhaps help.")
+        plain = analyzer.extract_features("This will work, and it will help everyone here.")
+
+        assert hedged["hedge_rate"] > plain["hedge_rate"]
+        assert plain["hedge_rate"] == 0.0
+
+    def test_booster_rate_detects_booster_words(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        boosted = analyzer.extract_features("This definitely and certainly always works perfectly.")
+        plain = analyzer.extract_features("This might possibly work in some cases here.")
+
+        assert boosted["booster_rate"] > plain["booster_rate"]
+        assert plain["booster_rate"] == 0.0
+
+
+class TestCharNgramProfile:
+    def test_profile_empty_for_very_short_text(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features("Hi.")
+        assert features["char_ngram_profile"] == {}
+
+    def test_profile_frequencies_sum_to_one(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features(DIVERSE_TEXT)
+        assert abs(sum(features["char_ngram_profile"].values()) - 1.0) < 0.01
+
+    def test_identical_profile_has_similarity_near_one(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features(DIVERSE_TEXT)
+        baseline = {"char_ngram_profile": features["char_ngram_profile"]}
+
+        similarity = calculate_char_ngram_similarity(features, baseline)
+
+        assert similarity is not None
+        assert similarity > 0.99
+
+    def test_similarity_none_without_baseline_profile(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features(DIVERSE_TEXT)
+
+        assert calculate_char_ngram_similarity(features, {}) is None
+
+    def test_similarity_lower_for_different_profile(self, nlp):
+        analyzer = StylemetricAnalyzer(nlp)
+        features = analyzer.extract_features(DIVERSE_TEXT)
+        other_profile = analyzer.extract_features(RARE_VOCAB_TEXT)["char_ngram_profile"]
+
+        same = calculate_char_ngram_similarity(features, {"char_ngram_profile": features["char_ngram_profile"]})
+        different = calculate_char_ngram_similarity(features, {"char_ngram_profile": other_profile})
+
+        assert different < same

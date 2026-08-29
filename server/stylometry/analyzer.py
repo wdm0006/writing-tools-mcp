@@ -12,10 +12,15 @@ from collections import Counter
 from typing import Any, Dict, List, Optional
 
 import textstat
+from wordfreq import zipf_frequency
 
 #: Universal Dependencies labels that mark a token as heading a subordinate clause.
 #: Used as a cheap, dependency-parse-only proxy for T-unit-style clause density.
 SUBORDINATE_CLAUSE_DEPS = {"advcl", "ccomp", "acl", "relcl", "xcomp", "csubj", "csubjpass"}
+
+#: spaCy POS tags conventionally treated as "content words" for lexical density
+#: (content words / total words), as opposed to function words.
+CONTENT_POS_TAGS = {"NOUN", "PROPN", "VERB", "ADJ", "ADV"}
 
 #: MTLD's standard TTR-drop threshold (McCarthy & Jarvis 2010).
 MTLD_THRESHOLD = 0.72
@@ -23,6 +28,62 @@ MTLD_THRESHOLD = 0.72
 #: MATTR's sliding window size in tokens (Covington & McFall 2010). Below this many
 #: tokens there's no window to slide, so MATTR falls back to None.
 MATTR_WINDOW = 50
+
+#: Character n-gram size used for the PAN/CLEF-style orthographic profile.
+CHAR_NGRAM_SIZE = 4
+
+#: Hand-built hedge/booster wordlists (no open, non-LIWC dictionary exists for these
+#: categories the way Empath substitutes for LIWC generally - see Pennebaker's work on
+#: function words and epistemic-marker research on hedges/boosters). Deliberately small
+#: and conservative rather than exhaustive.
+HEDGE_WORDS = {
+    "might",
+    "may",
+    "could",
+    "perhaps",
+    "possibly",
+    "seem",
+    "seems",
+    "seemed",
+    "appears",
+    "appeared",
+    "likely",
+    "somewhat",
+    "generally",
+    "often",
+    "usually",
+    "suggest",
+    "suggests",
+    "tend",
+    "tends",
+    "arguably",
+    "presumably",
+    "apparently",
+    "probably",
+    "roughly",
+    "relatively",
+}
+
+BOOSTER_WORDS = {
+    "definitely",
+    "certainly",
+    "always",
+    "never",
+    "clearly",
+    "obviously",
+    "undoubtedly",
+    "absolutely",
+    "surely",
+    "indeed",
+    "must",
+    "will",
+    "guaranteed",
+    "unquestionably",
+    "inevitably",
+    "entirely",
+    "completely",
+    "totally",
+}
 
 
 class StylemetricAnalyzer:
@@ -170,14 +231,32 @@ class StylemetricAnalyzer:
             # monotonically as a document gets longer.
             "mtld": self._mtld(doc),
             "mattr": self._mattr(doc),
+            "mtld_lemma": self._mtld(doc, use_lemmas=True),
+            # Vocabulary sophistication/rarity: how common the words used are, as
+            # opposed to how many distinct words are used (diversity, above).
+            "mean_word_frequency": self._mean_word_frequency(doc),
+            "word_len_std": self._word_length_std(doc),
+            "lexical_density": self._lexical_density(doc),
             # POS ratios
             "pos_ratios": self._pos_ratios(doc),
+            "pos_bigram_ratios": self._pos_bigram_ratios(doc),
             # Punctuation patterns
             "punct_density": self._punctuation_density(text),
             "comma_ratio": self._comma_ratio(text),
+            "semicolon_ratio": self._char_ratio_of_punct(text, ";"),
+            "em_dash_ratio": self._char_ratio_of_punct(text, "—"),
+            "ellipsis_ratio": self._ellipsis_ratio(text),
+            "exclamation_ratio": self._char_ratio_of_punct(text, "!"),
+            "parenthetical_rate": self._parenthetical_rate(text, sentences),
             # Additional features
             "function_word_ratio": self._function_word_ratio(doc),
             "function_word_freqs": self._function_word_freqs(doc),
+            "hedge_rate": self._wordlist_rate(doc, HEDGE_WORDS),
+            "booster_rate": self._wordlist_rate(doc, BOOSTER_WORDS),
+            # Character-level orthographic profile (PAN/CLEF-style). Compared against
+            # a baseline via cosine similarity, not mean/std z-scoring - see
+            # calculate_char_ngram_similarity.
+            "char_ngram_profile": self._char_ngram_profile(text),
             # Readability grade levels. Unlike TTR/hapax rate, these are not
             # length-confounded at the document lengths this tool sees in practice:
             # they're averages over per-sentence syllable/word counts, not a count of
@@ -207,11 +286,24 @@ class StylemetricAnalyzer:
             "avg_word_len": 0.0,
             "mtld": None,
             "mattr": None,
+            "mtld_lemma": None,
+            "mean_word_frequency": None,
+            "word_len_std": None,
+            "lexical_density": 0.0,
             "pos_ratios": {},
+            "pos_bigram_ratios": {},
             "punct_density": 0.0,
             "comma_ratio": 0.0,
+            "semicolon_ratio": 0.0,
+            "em_dash_ratio": 0.0,
+            "ellipsis_ratio": 0.0,
+            "exclamation_ratio": 0.0,
+            "parenthetical_rate": None,
             "function_word_ratio": 0.0,
             "function_word_freqs": {},
+            "hedge_rate": 0.0,
+            "booster_rate": 0.0,
+            "char_ngram_profile": {},
             "fog": None,
             "kincaid": None,
             "smog": None,
@@ -334,15 +426,23 @@ class StylemetricAnalyzer:
 
         return len(words) / factors if factors > 0 else float(len(words))
 
-    def _mtld(self, doc) -> Optional[float]:
+    def _mtld(self, doc, use_lemmas: bool = False) -> Optional[float]:
         """Measure of Textual Lexical Diversity (McCarthy & Jarvis 2010).
 
         Unlike TTR, MTLD is designed to be stable across document lengths: it
         averages a forward and backward pass over the token stream rather than a
         single type-count-over-token-count ratio. Below ~50 tokens the measure is
         unreliable (too few, if any, threshold drops), so this returns None there.
+
+        With `use_lemmas=True`, this measures diversity of root words rather than
+        surface forms - i.e. whether an author favors many distinct roots or many
+        inflections of few roots - without reintroducing the length confound a raw
+        lemma-based TTR would have (same algorithm, same length-robustness).
         """
-        words = [token.text.lower() for token in doc if not token.is_punct and not token.is_space]
+        if use_lemmas:
+            words = [token.lemma_.lower() for token in doc if not token.is_punct and not token.is_space]
+        else:
+            words = [token.text.lower() for token in doc if not token.is_punct and not token.is_space]
 
         if len(words) < 50:
             return None
@@ -366,6 +466,48 @@ class StylemetricAnalyzer:
         window_ttrs = [len(set(words[start : start + window])) / window for start in range(len(words) - window + 1)]
         return statistics.mean(window_ttrs)
 
+    def _mean_word_frequency(self, doc) -> Optional[float]:
+        """Mean Zipf frequency (log10 words-per-billion) of the vocabulary used.
+
+        Distinct from lexical *diversity* (mtld/mattr, how many different words):
+        this measures how *common* those words are, via the `wordfreq` reference
+        corpus - low values mean rarer, more sophisticated vocabulary; high values
+        mean plainer, more common vocabulary. An unrecognized word scores 0.0 (the
+        rarest possible), which is the correct treatment for a genuinely rare or
+        invented word.
+        """
+        words = [token.text.lower() for token in doc if not token.is_punct and not token.is_space]
+
+        if not words:
+            return None
+
+        return statistics.mean(zipf_frequency(word, "en") for word in words)
+
+    def _word_length_std(self, doc) -> Optional[float]:
+        """Standard deviation of word length in characters - the shape of the word-length
+        distribution, not just its mean (`avg_word_len`)."""
+        lengths = [len(token.text) for token in doc if not token.is_punct and not token.is_space]
+
+        if len(lengths) < 2:
+            return None
+
+        return statistics.stdev(lengths)
+
+    def _lexical_density(self, doc) -> float:
+        """Content words (noun/proper noun/verb/adj/adv) as a fraction of all words.
+
+        Distinct from `function_word_ratio`: that's a fixed closed-class wordlist
+        lookup, this is a POS-tag-based open-class/closed-class split, so the two
+        need not move together.
+        """
+        words = [token for token in doc if not token.is_punct and not token.is_space]
+
+        if not words:
+            return 0.0
+
+        content_count = sum(1 for token in words if token.pos_ in CONTENT_POS_TAGS)
+        return content_count / len(words)
+
     def _pos_ratios(self, doc) -> Dict[str, float]:
         """Calculate part-of-speech tag ratios."""
         # Count POS tags for non-punctuation, non-space tokens
@@ -381,6 +523,29 @@ class StylemetricAnalyzer:
             pos_ratios[pos_tag] = count / total_tokens
 
         return pos_ratios
+
+    def _pos_bigram_ratios(self, doc) -> Dict[str, float]:
+        """Ratios of consecutive POS-tag pairs (e.g. "DET_NOUN"), within each sentence.
+
+        A syntactic n-gram profile: published authorship-attribution work reports
+        POS bigrams/trigrams discriminating authors substantially better than
+        single-tag POS ratios alone. Bigrams don't cross sentence boundaries, since
+        a sentence-final-to-next-sentence-initial pair isn't a real syntactic
+        adjacency.
+        """
+        bigram_counts: Counter = Counter()
+        total = 0
+
+        for sent in doc.sents:
+            tags = [token.pos_ for token in sent if not token.is_punct and not token.is_space]
+            for first, second in zip(tags, tags[1:], strict=False):
+                bigram_counts[f"{first}_{second}"] += 1
+                total += 1
+
+        if total == 0:
+            return {}
+
+        return {bigram: count / total for bigram, count in bigram_counts.items()}
 
     def _punctuation_density(self, text: str) -> float:
         """Calculate punctuation density (punctuation marks / total characters)."""
@@ -399,6 +564,36 @@ class StylemetricAnalyzer:
         total_punct = sum(1 for char in text if char in ".,;:!?()[]{}\"'-")
 
         return comma_count / total_punct if total_punct > 0 else 0.0
+
+    def _char_ratio_of_punct(self, text: str, char: str) -> float:
+        """Ratio of a single punctuation character to all punctuation - same shape as
+        `_comma_ratio`, generalized to any one mark (semicolon, em dash, exclamation)."""
+        if not text:
+            return 0.0
+
+        char_count = text.count(char)
+        total_punct = sum(1 for c in text if c in ".,;:!?()[]{}\"'-—")
+
+        return char_count / total_punct if total_punct > 0 else 0.0
+
+    def _ellipsis_ratio(self, text: str) -> float:
+        """Ratio of ellipses (literal "..." or the single-character "…") to all punctuation."""
+        if not text:
+            return 0.0
+
+        ellipsis_count = text.count("…") + text.count("...")
+        total_punct = sum(1 for c in text if c in ".,;:!?()[]{}\"'-—")
+
+        return ellipsis_count / total_punct if total_punct > 0 else 0.0
+
+    def _parenthetical_rate(self, text: str, sentences) -> Optional[float]:
+        """Parenthetical asides per sentence - real forensic-linguistics idiolect marker
+        distinct from raw punctuation density (documented cases have turned on
+        punctuation-mark habits like this one)."""
+        if not sentences:
+            return None
+
+        return text.count("(") / len(sentences)
 
     def _function_word_ratio(self, doc) -> float:
         """Calculate ratio of function words to total words."""
@@ -428,6 +623,35 @@ class StylemetricAnalyzer:
         counts = Counter(words)
         total = len(words)
         return {word: counts.get(word, 0) / total for word in self.function_words}
+
+    def _wordlist_rate(self, doc, wordlist: set) -> float:
+        """Fraction of words belonging to a fixed wordlist (used for hedge/booster rate)."""
+        words = [token.text.lower() for token in doc if not token.is_punct and not token.is_space]
+
+        if not words:
+            return 0.0
+
+        return sum(1 for word in words if word in wordlist) / len(words)
+
+    def _char_ngram_profile(self, text: str, n: int = CHAR_NGRAM_SIZE) -> Dict[str, float]:
+        """Relative-frequency profile of character n-grams (PAN/CLEF-style orthographic
+        fingerprint), normalized within this document.
+
+        Compared against a baseline's aggregate profile via cosine similarity (see
+        `calculate_char_ngram_similarity`), not mean/std z-scoring - individual n-grams
+        are too sparse per document for that (most 4-grams occur 0-2 times in an
+        800-word post), but the whole-profile shape is stable enough to compare.
+        """
+        compact = "".join(text.split())
+
+        if len(compact) < n:
+            return {}
+
+        ngrams = [compact[i : i + n] for i in range(len(compact) - n + 1)]
+        total = len(ngrams)
+        counts = Counter(ngrams)
+
+        return {ngram: count / total for ngram, count in counts.items()}
 
     def _mean_dependency_distance(self, sentences) -> Optional[float]:
         """Mean linear distance (in tokens) between each word and its syntactic head.

@@ -13,12 +13,19 @@ from server.stylometry.corpus_baseline import (
     DEFAULT_ROBUST_POS_TAGS,
     build_baseline_from_texts,
 )
-from server.stylometry.statistical import calculate_sentence_z_scores, calculate_z_scores, flag_outliers, generate_flags
+from server.stylometry.statistical import (
+    calculate_char_ngram_similarity,
+    calculate_sentence_z_scores,
+    calculate_z_scores,
+    flag_outliers,
+    generate_flags,
+)
 
 __all__ = [
     "StylemetricAnalyzer",
     "BaselineManager",
     "calculate_z_scores",
+    "calculate_char_ngram_similarity",
     "flag_outliers",
     "generate_flags",
     "calculate_sentence_z_scores",
