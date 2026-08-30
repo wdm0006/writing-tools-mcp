@@ -20,7 +20,7 @@ This server provides the following text analysis tools:
 *   **`keyword_context`**: Extract sentences or phrases where a specific keyword appears.
 *   **`passive_voice_detection`**: Detect passive voice constructions in the text.
 *   **`perplexity_analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2.
-*   **`stylometric_analysis`**: Analyze stylometric features (sentence length, lexical diversity, POS ratios) for AI detection.
+*   **`stylometric_analysis`**: Analyze stylometric features (sentence length, length-robust lexical diversity and vocabulary rarity, POS ratios and bigrams, six readability grade-level formulas, syntactic complexity, punctuation idiosyncrasies, hedge/booster rate, per-function-word/Burrows' Delta profile, character n-gram profile) for AI detection, against a built-in or custom baseline.
 
 ## Install
 
@@ -89,6 +89,76 @@ rather than stopping the server.
 `stylometry.features` are accepted and type-checked, but nothing reads them yet; the baseline and
 language are chosen per call through the `stylometric_analysis` and `perplexity_analysis`
 arguments.
+
+## Custom Baselines
+
+`stylometric_analysis` compares a text's features against a baseline (`brown_corpus` by default)
+and flags whatever is an outlier relative to it. Brown Corpus is 1961 published news and fiction;
+it answers "does this read like typical published prose," which is often not the question you
+actually want answered. A more useful question for judging your own drafts is "does this read like
+*my own* pre-existing writing" - answered by building a baseline from a corpus of your own text.
+
+```bash
+uv run scripts/build_baseline.py my_own_voice path/to/txt/files/
+```
+
+Each `*.txt` file in the directory is treated as one document (strip front matter, markdown, and
+code fences first - the script analyzes exactly the text it's given). The baseline is saved under
+`data/baselines/custom_baselines/` and is immediately usable:
+
+```
+stylometric_analysis(text, baseline="my_own_voice")
+```
+
+By default the builder (`server.stylometry.build_baseline_from_texts`) only computes mean/std for
+a curated, length-robust feature set: `avg_sentence_len`, `sentence_len_std`, `fog`/`kincaid`/`smog`/
+`coleman_liau`/`ari`/`dale_chall` (six readability grade-level formulas), `mtld`/`mattr`/`mtld_lemma`
+(length-robust lexical diversity, on surface forms and lemmas respectively), `mean_word_frequency`
+(vocabulary *rarity*, via `wordfreq` - distinct from diversity: how common the words used are, not
+how many distinct words there are), `word_len_std`, `lexical_density`, five punctuation-idiosyncrasy
+ratios (`semicolon_ratio`, `em_dash_ratio`, `ellipsis_ratio`, `exclamation_ratio`,
+`parenthetical_rate`), `hedge_rate`/`booster_rate` (epistemic-marker word categories),
+`mean_dependency_distance`/`subordinate_clause_ratio` (syntactic complexity read off the dependency
+parse), the `ADP`/`DET` POS ratios, a curated 10-bigram POS-sequence profile (see below), a
+Burrows'-Delta-style per-function-word frequency profile (see below), and a character n-gram
+orthographic profile (see below). Type-token ratio and the hapax legomena rate are deliberately left
+out: both fall monotonically as a document gets longer, for any author, so comparing them across a
+corpus of mixed document lengths mostly measures length rather than style - `mtld`/`mattr`/`mtld_lemma`
+exist specifically as length-robust replacements for them (McCarthy & Jarvis 2010; Covington & McFall
+2010). `fourgram_repetition_rate` and `zipf_slope` are computed but *not* in the default set: unlike
+ttr/hapax, we haven't verified whether they vary with length, so they're opt-in only. Pass
+`--all-features` to include every feature `extract_features` computes, length-confounded or not.
+
+**Burrows' Delta.** Rather than one aggregate `function_word_ratio`, the builder also tracks each of
+`StylemetricAnalyzer`'s ~100 function words individually (mean/std per word across the corpus).
+`stylometric_analysis` z-scores each word against its own baseline entry, then reduces all of them
+to one number - `burrows_delta`, the mean absolute z-score across every word scored - the classic
+Burrows' Delta statistic (Burrows 2002), built for exactly this kind of small, single-author corpus.
+A large `burrows_delta` (above the usual warning z-threshold) raises a `distinct_function_word_profile`
+flag. Pass `function_words=[]` to `build_baseline_from_texts` (or a custom word list) to change or
+skip this dimension.
+
+**POS bigrams.** Published authorship-attribution work reports POS-tag bigrams/trigrams
+discriminating authors substantially better than single-tag POS ratios alone. The builder tracks a
+small, curated 10-bigram subset by default (`DEFAULT_ROBUST_POS_BIGRAMS` - noun- and
+verb-phrase-initiation patterns like `DET_NOUN`, `VERB_ADP`), scored the same way as `pos_ratios`
+under a `posbi_` prefix, rather than all ~289 possible tag combinations - most bigrams are too sparse
+per document (a handful of occurrences in an 800-word post) to average reliably. Pass `pos_bigrams=`
+to change the tracked set, or `[]` to skip this dimension.
+
+**Character n-gram profile.** A PAN/CLEF-style orthographic fingerprint: character 4-gram relative
+frequencies, normalized per document. Individual n-grams are too sparse to z-score the way pos_ratios
+or function words are (most 4-grams occur 0-2 times in a typical post), so this is compared as a
+*whole profile* instead - `calculate_char_ngram_similarity` computes the cosine similarity between a
+draft's profile and the baseline's aggregate profile (kept to the top `char_ngram_top_k` n-grams by
+corpus-wide frequency, default 300, to bound the baseline's file size). `stylometric_analysis` surfaces
+this as a top-level `char_ngram_similarity` (not part of `z_scores` or `flags` - there's no calibrated
+threshold for it yet). Note this is sensitive to vocabulary/topic, not just style: a post using very
+different subject-matter vocabulary from the baseline corpus will score a low similarity for that
+reason alone, not necessarily because of authorship. Pass `char_ngram_top_k=0` to skip this dimension.
+
+`data/baselines/custom_baselines/mcginniscommawill_pre2020.json` ships as a worked example: 102
+pre-2020 posts from [mcginniscommawill.com](https://mcginniscommawill.com), built with this script.
 
 ## Building the Bundle
 
@@ -265,16 +335,17 @@ Below is a detailed reference for each tool provided by the server.
 
 **`stylometric_analysis`**
 
-*   **Description**: Analyze text for stylometric features and detect AI-generated content. Computes sentence length distribution, lexical diversity metrics (TTR, Hapax Legomena), POS ratios, and other stylometric features. Flags outliers relative to human writing baselines using z-score analysis.
+*   **Description**: Analyze text for stylometric features and detect AI-generated content. Computes sentence length distribution, lexical diversity (TTR/Hapax, plus the length-robust `mtld`/`mattr`/`mtld_lemma`) and vocabulary rarity (`mean_word_frequency`, via `wordfreq`), POS ratios and a curated POS-bigram profile, six readability grade-level formulas (Fog, Kincaid, SMOG, Coleman-Liau, ARI, Dale-Chall), syntactic complexity from the dependency parse (`mean_dependency_distance`, `subordinate_clause_ratio`), punctuation idiosyncrasies (semicolon/em-dash/ellipsis/exclamation/parenthetical rate), hedge/booster epistemic-marker rates, n-gram repetition and Zipf-slope, a per-function-word frequency profile reduced to a Burrows' Delta score, and a character n-gram orthographic profile compared via cosine similarity. Flags outliers relative to a baseline (built-in `brown_corpus`, or a [custom baseline](#custom-baselines) built from your own writing) using z-score analysis.
 *   **Parameters**:
     *   `text` (`str`): The text to analyze.
-    *   `baseline` (`str`, optional, default=`"brown_corpus"`): Baseline corpus name for comparison.
+    *   `baseline` (`str`, optional, default=`"brown_corpus"`): Baseline corpus name for comparison. See [Custom Baselines](#custom-baselines) to build your own.
     *   `language` (`str`, optional, default=`"en"`): Language code (only "en" supported currently).
 *   **Returns**: `dict` - Stylometric analysis including:
-    *   `features` (`dict`): Extracted stylometric features (sentence length, TTR, hapax rate, POS ratios, etc.)
-    *   `z_scores` (`dict`): Z-scores of features against the baseline
+    *   `features` (`dict`): Extracted stylometric features (sentence length, TTR/hapax/`mtld`/`mattr`/`mtld_lemma`, `mean_word_frequency`, `word_len_std`, `lexical_density`, POS ratios, `pos_bigram_ratios`, `fog`/`kincaid`/`smog`/`coleman_liau`/`ari`/`dale_chall`, `mean_dependency_distance`, `subordinate_clause_ratio`, punctuation-idiosyncrasy ratios, `hedge_rate`/`booster_rate`, `fourgram_repetition_rate`, `zipf_slope`, `function_word_freqs`, etc. - `char_ngram_profile` is computed internally for `char_ngram_similarity` below but omitted here, as a several-hundred-entry intermediate)
+    *   `z_scores` (`dict`): Z-scores of features against the baseline, including per-word `fw_<word>` scores and the aggregate `burrows_delta`, and per-bigram `posbi_<tag>_<tag>` scores
     *   `flags` (`dict`): AI detection flags with confidence levels and explanations
     *   `sentence_analysis` (`list`): Per-sentence analysis with z-scores
+    *   `char_ngram_similarity` (`float | null`): Cosine similarity between this text's character n-gram profile and the baseline's (see [Custom Baselines](#custom-baselines)); `null` when the baseline has no character n-gram profile (e.g. `brown_corpus`)
     *   `config` (`dict`): Baseline information and analysis thresholds
 
 ---
