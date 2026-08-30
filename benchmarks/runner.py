@@ -98,7 +98,6 @@ def score_stylometry(analyzer: AIDetectionAnalyzer, text: str, baseline: str) ->
         "ai_indicators": flags.get("ai_indicators", []),
         "warnings": flags.get("warnings", []),
         "errors": flags.get("errors", []),
-        "char_ngram_similarity": result.get("char_ngram_similarity"),
         # The two continuous per-document numbers the stylometry path produces
         # that are not features: the score the shipped flag thresholds on, and
         # the whole-profile n-gram similarity. Grouped so the report can

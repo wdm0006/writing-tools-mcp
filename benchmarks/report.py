@@ -98,17 +98,21 @@ def _failure_section(records: Sequence[Dict[str, Any]], methods: Sequence[str]) 
 
 def _feature_table(summaries: Sequence[Dict[str, Any]], value_places: int = 4) -> List[str]:
     lines = [
-        "| feature | human n | human mean | human std | machine n | machine mean | machine std "
-        "| mean diff (machine - human) | Cohen's d | direction |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        "| feature | human n | human mean | human median | human std "
+        "| machine n | machine mean | machine median | machine std "
+        "| mean diff | median diff | Cohen's d | direction (mean) | direction (median) |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
     ]
     for summary in summaries:
         human, machine = summary["human"], summary["machine"]
         lines.append(
             f"| `{summary['feature']}` | {human['n']} | {_num(human['mean'], value_places)} "
-            f"| {_num(human['std'], value_places)} | {machine['n']} | {_num(machine['mean'], value_places)} "
-            f"| {_num(machine['std'], value_places)} | {_num(summary['mean_difference'], value_places)} "
-            f"| {_num(summary['cohens_d'])} | {summary['direction']} |"
+            f"| {_num(human['median'], value_places)} | {_num(human['std'], value_places)} "
+            f"| {machine['n']} | {_num(machine['mean'], value_places)} "
+            f"| {_num(machine['median'], value_places)} | {_num(machine['std'], value_places)} "
+            f"| {_num(summary['mean_difference'], value_places)} "
+            f"| {_num(summary['median_difference'], value_places)} "
+            f"| {_num(summary['cohens_d'])} | {summary['direction']} | {summary['direction_median']} |"
         )
     return lines
 
@@ -214,9 +218,12 @@ def build_report(
         lines += [
             "### Stylometric features (raw values)",
             "",
-            "Direction is the sign of the machine-minus-human mean difference. Cohen's d is the "
-            "pooled-standard-deviation effect size; values near zero mean the feature does not "
-            "separate the two classes in this corpus.",
+            "Direction is the sign of the machine-minus-human difference, reported separately for "
+            "the mean and the median. Several of these features are heavy-tailed, so the two can "
+            "disagree - where they do, the median describes the typical document and the mean is "
+            "being carried by a few extreme ones. Cohen's d is the pooled-standard-deviation effect "
+            "size and inherits the mean's sensitivity to those outliers; values near zero mean the "
+            "feature does not separate the two classes in this corpus.",
             "",
         ]
         lines += _feature_table(metrics.feature_separation(records, "stylometry", "features"))

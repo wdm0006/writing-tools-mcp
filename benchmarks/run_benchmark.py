@@ -13,6 +13,7 @@ import json
 import platform
 import sys
 from datetime import datetime, timezone
+from importlib import metadata
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -36,17 +37,17 @@ def _repo_relative(path: Path) -> str:
 
 
 def _library_versions() -> dict:
+    """Installed versions of every library whose output lands in the report.
+
+    Read from distribution metadata rather than a ``__version__`` attribute:
+    not every one of these exposes that attribute, and ``textstat`` exposes a
+    tuple, so the attribute route silently reports "unknown" for some of them.
+    """
     versions = {"python": platform.python_version(), "platform": platform.platform()}
     for name in ("spacy", "torch", "transformers", "textstat", "wordfreq", "numpy"):
         try:
-            module = __import__(name)
-            # textstat reports its version as a tuple; normalize so every value
-            # in this file is a plain string.
-            version = getattr(module, "__version__", None) or getattr(module, "VERSION", None)
-            if isinstance(version, tuple):
-                version = ".".join(str(part) for part in version)
-            versions[name] = str(version) if version else "unknown"
-        except Exception:  # noqa: BLE001 - a missing optional import is metadata, not a failure
+            versions[name] = metadata.version(name)
+        except metadata.PackageNotFoundError:
             versions[name] = "not installed"
     return versions
 

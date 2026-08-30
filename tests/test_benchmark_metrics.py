@@ -238,6 +238,44 @@ class TestFeatureSeparation:
         assert summaries["fog"]["mean_difference"] == pytest.approx(0.0)
         assert summaries["fog"]["cohens_d"] == pytest.approx(0.0)
 
+    def test_mean_and_median_directions_are_reported_separately(self):
+        """A heavy tail can flip the mean's direction against the median's."""
+        human_values = [10.0, 11.0, 12.0, 13.0]
+        # Three low values plus one extreme: the machine mean lands far above
+        # the human mean while the machine median sits below it.
+        machine_values = [1.0, 2.0, 3.0, 1000.0]
+        records = [
+            make_record(f"h{i}", HUMAN, stylometry=ok_stylometry(False, 0.0, features={"ppl": value}))
+            for i, value in enumerate(human_values)
+        ] + [
+            make_record(f"m{i}", MACHINE, stylometry=ok_stylometry(True, 1.0, features={"ppl": value}))
+            for i, value in enumerate(machine_values)
+        ]
+        summary = metrics.feature_separation(records, "stylometry", "features")[0]
+        assert summary["human"]["median"] == pytest.approx(11.5)
+        assert summary["machine"]["median"] == pytest.approx(2.5)
+        assert summary["direction"] == "higher in machine"
+        assert summary["direction_median"] == "lower in machine"
+        assert summary["mean_difference"] == pytest.approx(251.5 - 11.5)
+        assert summary["median_difference"] == pytest.approx(-9.0)
+
+    def test_report_shows_both_directions(self):
+        records = [
+            make_record(f"h{i}", HUMAN, stylometry=ok_stylometry(False, 0.0, features={"ppl": value}))
+            for i, value in enumerate([10.0, 11.0, 12.0, 13.0])
+        ] + [
+            make_record(f"m{i}", MACHINE, stylometry=ok_stylometry(True, 1.0, features={"ppl": value}))
+            for i, value in enumerate([1.0, 2.0, 3.0, 1000.0])
+        ]
+        markdown = report.build_report(
+            records,
+            corpus_info={"name": "fixture", "description": "4 documents", "manifest": "n/a"},
+            thresholds={},
+            methods=["stylometry"],
+        )
+        assert "| direction (mean) | direction (median) |" in markdown
+        assert "| higher in machine | lower in machine |" in markdown
+
     def test_missing_and_non_numeric_values_are_skipped_per_feature(self):
         records = [
             make_record("h1", HUMAN, stylometry=ok_stylometry(False, 0.0, features={"a": 1.0, "b": None})),

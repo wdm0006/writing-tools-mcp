@@ -208,13 +208,22 @@ def cohens_d(human_stats: Dict[str, Optional[float]], machine_stats: Dict[str, O
     return (machine_stats["mean"] - human_stats["mean"]) / math.sqrt(pooled_variance)
 
 
-def separation_direction(human_stats: Dict[str, Optional[float]], machine_stats: Dict[str, Optional[float]]) -> str:
-    """Which way the feature moves for machine text relative to human text."""
-    if human_stats["mean"] is None or machine_stats["mean"] is None:
+def separation_direction(
+    human_stats: Dict[str, Optional[float]], machine_stats: Dict[str, Optional[float]], statistic: str = "mean"
+) -> str:
+    """Which way the feature moves for machine text, by mean or by median.
+
+    Both are reported because several of these features are heavy-tailed - a
+    handful of degenerate generations can pull a mean across zero while the bulk
+    of the class sits the other way - and a direction quoted from the mean alone
+    would then assert the opposite of what the typical document does.
+    """
+    human_value, machine_value = human_stats[statistic], machine_stats[statistic]
+    if human_value is None or machine_value is None:
         return "unmeasured"
-    if machine_stats["mean"] > human_stats["mean"]:
+    if machine_value > human_value:
         return "higher in machine"
-    if machine_stats["mean"] < human_stats["mean"]:
+    if machine_value < human_value:
         return "lower in machine"
     return "no difference"
 
@@ -271,8 +280,14 @@ def feature_separation(records: Sequence[Dict[str, Any]], method: str, block: st
                     if human_stats["mean"] is None or machine_stats["mean"] is None
                     else machine_stats["mean"] - human_stats["mean"]
                 ),
+                "median_difference": (
+                    None
+                    if human_stats["median"] is None or machine_stats["median"] is None
+                    else machine_stats["median"] - human_stats["median"]
+                ),
                 "cohens_d": cohens_d(human_stats, machine_stats),
-                "direction": separation_direction(human_stats, machine_stats),
+                "direction": separation_direction(human_stats, machine_stats, "mean"),
+                "direction_median": separation_direction(human_stats, machine_stats, "median"),
             }
         )
     return summaries
