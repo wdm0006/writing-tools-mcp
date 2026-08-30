@@ -350,6 +350,21 @@ Below is a detailed reference for each tool provided by the server.
 
 ---
 
+## Detector Benchmark
+
+`benchmarks/` is an offline evaluation surface, separate from the MCP server. It scores
+the AI-detection code against committed labeled corpora and writes a report, so the
+shipped thresholds can be argued about with numbers instead of intuition. It changes no
+tool, default, or threshold.
+
+```bash
+uv run benchmarks/run_benchmark.py
+```
+
+See [`benchmarks/README.md`](benchmarks/README.md) for what the corpora are, what the
+report contains, and how far the results reproduce. Corpus text is third-party and is
+licensed separately from this repository's code.
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.
