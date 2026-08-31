@@ -175,6 +175,38 @@ def test_paragraph_with_hard_line_breaks():
     assert strip_markdown_markup(md) == expected
 
 
+def test_gfm_table_keeps_cells_without_table_syntax():
+    markdown = """The results are summarized below.
+
+| Configuration | Accuracy | Latency |
+| --- | --- | --- |
+| baseline | 0.81 | 120 |
+| tuned | 0.88 | 145 |
+| ensemble | 0.91 | 320 |
+
+Overall the ensemble wins."""
+
+    assert (
+        strip_markdown_markup(markdown)
+        == """The results are summarized below.
+
+Configuration Accuracy Latency
+baseline 0.81 120
+tuned 0.88 145
+ensemble 0.91 320
+
+Overall the ensemble wins."""
+    )
+
+
+def test_thematic_break_remains_separate_from_table_parsing():
+    assert strip_markdown_markup("Para one.\n\n---\n\nPara two.") == "Para one.\n\nPara two."
+
+
+def test_setext_heading_remains_a_heading():
+    assert strip_markdown_markup("Title\n=====\n\nBody.") == "Title\n\nBody."
+
+
 def test_text_with_html_tags_ignored():
     # Current function states it ignores HTML for simplicity
     md = "Text with <p>HTML</p> <span>tags</span>."
