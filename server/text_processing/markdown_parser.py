@@ -224,7 +224,7 @@ def strip_markdown_markup(text: str) -> str:
     if not text or text.isspace():
         return ""
 
-    md = MarkdownIt()
+    md = MarkdownIt().enable("table")
     tokens = md.parse(text.strip())
     content_parts = []
 
@@ -255,6 +255,15 @@ def strip_markdown_markup(text: str) -> str:
                     content_parts.append("\n")
                 elif child.type == "hardbreak":
                     content_parts.append("\n\n")
+        elif token.type == "th_close" or token.type == "td_close":
+            content_parts.append(" ")
+        elif token.type == "tr_close":
+            if content_parts and content_parts[-1].endswith(" "):
+                content_parts[-1] = content_parts[-1].rstrip(" ")
+            content_parts.append("\n")
+        elif token.type == "table_close":
+            if content_parts and not "".join(content_parts).endswith("\n\n"):
+                content_parts.append("\n")
         elif token.type == "paragraph_close" or token.type == "heading_close":
             current_text_so_far = "".join(content_parts)
             if content_parts and not current_text_so_far.endswith("\n\n"):

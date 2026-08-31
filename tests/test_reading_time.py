@@ -93,3 +93,28 @@ Second paragraph with more content."""
     def test_reading_time_whitespace_only(self):
         """Whitespace-only input has nothing to read."""
         assert self.analyzer.reading_time("   \n\n  ")["full_text"] == 0
+
+    def test_table_syntax_does_not_increase_reading_time(self):
+        """Table delimiters contribute nothing to the estimate."""
+        markdown = """The results are summarized below.
+
+| Configuration | Accuracy | Latency |
+| --- | --- | --- |
+| baseline | 0.81 | 120 |
+| tuned | 0.88 | 145 |
+| ensemble | 0.91 | 320 |
+
+Overall the ensemble wins."""
+        plain = """The results are summarized below.
+
+Configuration Accuracy Latency
+baseline 0.81 120
+tuned 0.88 145
+ensemble 0.91 320
+
+Overall the ensemble wins."""
+
+        assert self.analyzer.reading_time(markdown)["full_text"] == self.analyzer.reading_time(plain)["full_text"]
+        assert self.analyzer.readability_score(markdown, level="full") == self.analyzer.readability_score(
+            plain, level="full"
+        )
