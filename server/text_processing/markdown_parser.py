@@ -86,6 +86,8 @@ def parse_markdown_sections(text: str) -> Dict[str, Any]:
     Uses markdown-it-py for robust parsing.
     Returns a dictionary with heading text as keys and content as values.
     Top level has key "full_text". Includes paragraphs for full text and sections.
+    Repeated headings are disambiguated with a " (n)" suffix ("## Notes", "## Notes (2)")
+    so every occurrence keeps its own entry and its own "_paragraphs" sibling.
     """
     md = MarkdownIt()
     tokens = md.parse(text)
@@ -96,6 +98,7 @@ def parse_markdown_sections(text: str) -> Dict[str, Any]:
     current_section_level = 0
     section_data = []  # Store (level, key, content_tokens)
     in_heading = False  # Track if we are inside heading tokens
+    used_section_keys = set()  # Keys already handed out, so repeated headings stay distinct
 
     # First pass: identify headings and group content tokens under them
     content_buffer_tokens = []
@@ -120,9 +123,17 @@ def parse_markdown_sections(text: str) -> Dict[str, Any]:
 
             # Extract heading key from the NEXT inline token
             if i + 1 < len(tokens) and tokens[i + 1].type == "inline":
-                current_section_key = f"{'#' * current_section_level} {tokens[i + 1].content.strip()}"
+                base_section_key = f"{'#' * current_section_level} {tokens[i + 1].content.strip()}"
             else:
-                current_section_key = f"{'#' * current_section_level} Untitled Section"
+                base_section_key = f"{'#' * current_section_level} Untitled Section"
+            # A repeated heading gets a numbered suffix so it keeps its own entry.
+            # The suffix stays ahead of the "_paragraphs" suffix used elsewhere.
+            current_section_key = base_section_key
+            occurrence = 2
+            while current_section_key in used_section_keys:
+                current_section_key = f"{base_section_key} ({occurrence})"
+                occurrence += 1
+            used_section_keys.add(current_section_key)
             # Skip the heading_open token itself
             continue
 
