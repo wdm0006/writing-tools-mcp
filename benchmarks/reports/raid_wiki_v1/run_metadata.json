@@ -1,0 +1,20 @@
+{
+  "analyses": [
+    "stylometry",
+    "perplexity"
+  ],
+  "baseline": "brown_corpus",
+  "corpus": "benchmarks/corpora/raid_wiki_v1/corpus.jsonl",
+  "generated_at": "2026-08-30T21:30:51.101638+00:00",
+  "library_versions": {
+    "numpy": "2.2.5",
+    "platform": "macOS-26.2-arm64-arm-64bit",
+    "python": "3.12.11",
+    "spacy": "3.8.5",
+    "textstat": "0.7.5",
+    "torch": "2.7.0",
+    "transformers": "4.52.3",
+    "wordfreq": "3.1.1"
+  },
+  "n_documents": 220
+}
