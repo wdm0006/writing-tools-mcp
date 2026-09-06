@@ -53,12 +53,14 @@ import asyncio
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 
+
 async def main():
     t = StdioTransport(command="uv", args=["run", "run_server.py"], cwd="/home/user/work/writing-tools-mcp")
     async with Client(t) as client:
-        tools = await client.list_tools()                      # expect 13 tools
+        tools = await client.list_tools()  # expect 13 tools
         r = await client.call_tool("word_count", {"text": "The quick brown fox jumps over the lazy dog."})
         print(r.data)
+
 
 asyncio.run(main())
 ```
