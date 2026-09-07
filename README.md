@@ -104,7 +104,8 @@ uv run scripts/build_baseline.py my_own_voice path/to/txt/files/
 
 Each `*.txt` file in the directory is treated as one document (strip front matter, markdown, and
 code fences first - the script analyzes exactly the text it's given). The baseline is saved under
-`data/baselines/custom_baselines/` and is immediately usable:
+`server/data/baselines/custom_baselines/` (inside the `server` package, so it is found whether the
+server runs from a checkout or an installed wheel) and is immediately usable:
 
 ```
 stylometric_analysis(text, baseline="my_own_voice")
@@ -157,7 +158,7 @@ threshold for it yet). Note this is sensitive to vocabulary/topic, not just styl
 different subject-matter vocabulary from the baseline corpus will score a low similarity for that
 reason alone, not necessarily because of authorship. Pass `char_ngram_top_k=0` to skip this dimension.
 
-`data/baselines/custom_baselines/mcginniscommawill_pre2020.json` ships as a worked example: 102
+`server/data/baselines/custom_baselines/mcginniscommawill_pre2020.json` ships as a worked example: 102
 pre-2020 posts from [mcginniscommawill.com](https://mcginniscommawill.com), built with this script.
 
 ## Building the Bundle
