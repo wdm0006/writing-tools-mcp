@@ -2,6 +2,7 @@
 
 import logging
 import statistics
+from typing import Any
 
 import numpy as np
 import torch
@@ -110,7 +111,7 @@ class AIDetectionAnalyzer:
             doc_burstiness = self._calculate_burstiness(sentence_perplexities)
 
             # Check against thresholds for AI detection flags
-            flags = {"high_ai_probability": False, "reasons": []}
+            flags: dict[str, Any] = {"high_ai_probability": False, "reasons": []}
             thresholds = config["thresholds"]
 
             # An unmeasurable burstiness is not a low one, so it can never contribute

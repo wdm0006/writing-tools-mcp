@@ -133,27 +133,17 @@ def auto_cleanup(*model_names):
 
 
 @mcp.tool()
-def list_tools():
+async def list_tools() -> list[str]:
     """Lists the names of all available tools provided by this server.
 
+    Names are derived from the live FastMCP registry, so registering or removing
+    a tool is reflected here without a second place to edit.
+
     Returns:
-        list[str]: A list containing the names of all registered MCP tools.
+        list[str]: A sorted list containing the names of all registered MCP tools.
     """
-    return [
-        "list_tools",
-        "character_count",
-        "word_count",
-        "spellcheck",
-        "readability_score",
-        "reading_time",
-        "keyword_density",
-        "keyword_frequency",
-        "top_keywords",
-        "keyword_context",
-        "passive_voice_detection",
-        "perplexity_analysis",
-        "stylometric_analysis",
-    ]
+    registered = await mcp.list_tools()
+    return sorted(tool.name for tool in registered)
 
 
 @mcp.tool()

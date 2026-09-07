@@ -45,14 +45,20 @@ jobs:
       - name: Install dependencies
         run: uv pip install -e ".[dev]"
 
+      - name: Install spaCy model (GitHub-hosted wheel; not on PyPI)
+        run: uv pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+
       - name: Run linter
         run: uv run ruff check .
 
       - name: Run formatter check
         run: uv run ruff format --check .
 
-      - name: Run tests
-        run: uv run pytest tests/ -v
+      - name: Run type checker
+        run: uv run mypy
+
+      - name: Run tests with coverage gate
+        run: uv run pytest tests/ --cov=server --cov-report=term-missing --cov-fail-under=90 -v
 
       - name: Test entry point resolves
         run: |

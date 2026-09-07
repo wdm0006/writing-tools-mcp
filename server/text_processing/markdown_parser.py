@@ -92,16 +92,16 @@ def parse_markdown_sections(text: str) -> Dict[str, Any]:
     md = MarkdownIt()
     tokens = md.parse(text)
 
-    sections = {"full_text": text}
+    sections: dict[str, Any] = {"full_text": text}
     current_section_key = None
-    current_section_content_tokens = []
+    current_section_content_tokens: list[Any] = []
     current_section_level = 0
     section_data = []  # Store (level, key, content_tokens)
     in_heading = False  # Track if we are inside heading tokens
     used_section_keys = set()  # Keys already handed out, so repeated headings stay distinct
 
     # First pass: identify headings and group content tokens under them
-    content_buffer_tokens = []
+    content_buffer_tokens: list[Any] = []
     for i, token in enumerate(tokens):
         if token.type == "heading_open":
             in_heading = True
@@ -170,7 +170,7 @@ def parse_markdown_sections(text: str) -> Dict[str, Any]:
 
     # Process actual sections
     processed_keys = {"_leading_content"}  # Keep track of processed keys
-    active_hierarchy = []  # Stack of (level, key, tokens)
+    active_hierarchy: list[list[Any]] = []  # Stack of (level, key, tokens)
 
     for level, key, content_tokens in section_data:
         if key == "_leading_content":

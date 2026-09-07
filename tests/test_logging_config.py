@@ -48,6 +48,22 @@ def _load(tmp_path, text):
     return load_config(str(config_file))
 
 
+class TestMissingLoggingSection:
+    """A configuration with no logging section falls back to the defaults."""
+
+    def test_empty_config_uses_default_level_and_format(self, restore_root_logging):
+        app.configure_logging({})
+
+        assert logging.getLogger().getEffectiveLevel() == logging.INFO
+        record = logging.getLogger("server.app")
+        assert record.isEnabledFor(logging.INFO)
+
+    def test_empty_logging_section_uses_default_level(self, restore_root_logging):
+        app.configure_logging({"logging": {}})
+
+        assert logging.getLogger().getEffectiveLevel() == logging.INFO
+
+
 class TestConfiguredLevel:
     """The configured level reaches the logger."""
 

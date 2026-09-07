@@ -12,8 +12,8 @@ class GPT2Manager:
 
     def __init__(self, config: dict):
         self.config = config
-        self._model = None
-        self._tokenizer = None
+        self._model: GPT2LMHeadModel | None = None
+        self._tokenizer: GPT2Tokenizer | None = None
         logger.info("GPT2Manager initialized (model will be loaded on first use)")
 
     def get_model_and_tokenizer(self):
@@ -53,7 +53,10 @@ class GPT2Manager:
             # Configure model
             self._model.eval()
             if self.config.get("device") == "cpu":
-                self._model = self._model.to("cpu")
+                # transformers types Module.to via functools.wraps and mypy
+                # misaligns the wrapped signature here; "cpu" is valid at
+                # runtime. Remove the ignore if a transformers release fixes it.
+                self._model = self._model.to("cpu")  # type: ignore[arg-type]
 
             # Add padding token if not present
             if self._tokenizer.pad_token is None:
