@@ -1,0 +1,9 @@
+# .obvious/config.yml — repository policy for obvious agents (wdm0006/writing-tools-mcp)
+# Detected from GitHub repo settings 2026-09-06: default branch is main; merge commits,
+# squash, and rebase are all allowed on the repo. Recent PRs (#51-#53) were merged with
+# merge commits, so "merge" is the established method.
+defaultBranch: main
+mergeMethod: merge
+deleteBranchOnMerge: false
+# Setup/automation PRs into the default branch wait for a human merge decision.
+requireHumanMerge: true
