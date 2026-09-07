@@ -1,6 +1,8 @@
 """Default configuration values."""
 
-DEFAULT_CONFIG = {
+from typing import Any
+
+DEFAULT_CONFIG: dict[str, Any] = {
     "perplexity": {
         "model_name": "gpt2",
         "max_length": 512,

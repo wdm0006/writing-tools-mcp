@@ -73,7 +73,7 @@ class BaselineManager:
             config: Optional configuration dictionary
         """
         self.config = config or {}
-        self.baselines = {}
+        self.baselines: dict[str, dict[str, Any]] = {}
         self._load_default_baselines()
 
     def _load_default_baselines(self):

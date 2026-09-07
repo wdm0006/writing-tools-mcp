@@ -54,6 +54,9 @@ jobs:
       - name: Run formatter check
         run: uv run ruff format --check .
 
+      - name: Run type checker
+        run: uv run mypy
+
       - name: Run tests with coverage gate
         run: uv run pytest tests/ --cov=server --cov-report=term-missing --cov-fail-under=90 -v
 
