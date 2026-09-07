@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "writing-tools-mcp",
   "display_name": "Writing Tools",
-  "version": "0.1.0",
+  "version": "0.0.6",
   "description": "MCP server providing advanced text analysis tools including readability scores, keyword analysis, AI detection, and stylometric analysis",
   "long_description": "This MCP server provides comprehensive writing analysis tools designed to help improve text quality and detect AI-generated content. Features include:\n\n- **Basic Statistics**: Character count, word count, spell checking\n- **Readability Analysis**: Flesch Reading Ease, Flesch-Kincaid Grade, Gunning Fog Index at document, section, and paragraph levels\n- **Keyword Analysis**: Keyword density, frequency, top keywords extraction, and context-aware keyword search\n- **Style Analysis**: Passive voice detection using advanced NLP\n- **AI Detection**: Perplexity analysis using GPT-2 and stylometric feature analysis with statistical baselines\n\nPerfect for writers, editors, researchers, and anyone looking to analyze and improve their writing.",
   "author": {

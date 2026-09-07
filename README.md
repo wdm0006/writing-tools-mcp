@@ -35,6 +35,15 @@ uv sync
 uv run run_server.py
 ```
 
+The spaCy `en_core_web_sm` model is not published to PyPI (Explosion distributes
+model wheels through [GitHub releases](https://github.com/explosion/spacy-models/releases)),
+so it is not listed as a package dependency. It is downloaded automatically on
+first use; to pre-install it - for example to keep test runs hermetic - run:
+
+```bash
+uv pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+```
+
 ## MCP Client Configuration
 
 ```json
@@ -67,7 +76,7 @@ perplexity:
 
 stylometry:
   default_baseline: "brown_corpus"
-  custom_baselines_dir: "data/baselines/custom_baselines"
+  custom_baselines_dir: "server/data/baselines/custom_baselines"
   thresholds:
     warning_z: 2.0                # |z| for a warning
     error_z: 3.0                  # |z| for an error
