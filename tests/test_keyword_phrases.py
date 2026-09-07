@@ -28,6 +28,35 @@ def test_empty_keyword_has_no_context(keyword_analyzer, keyword):
     assert keyword_analyzer.keyword_context("Words remain. More words follow.", keyword) == []
 
 
+def test_keyword_frequency_counts_lemmas_without_stopwords(keyword_analyzer):
+    """Exact lemma counts on a mixed stopword/non-stopword document."""
+    text = "The cat sat. The cat ran home."
+
+    assert keyword_analyzer.keyword_frequency(text) == {"cat": 2, "sit": 1, "run": 1, "home": 1}
+
+
+def test_keyword_frequency_keeps_stopwords_when_asked(keyword_analyzer):
+    """remove_stopwords=False retains function words and their counts."""
+    text = "The cat sat. The cat ran home."
+
+    assert keyword_analyzer.keyword_frequency(text, remove_stopwords=False) == {
+        "the": 2,
+        "cat": 2,
+        "sit": 1,
+        "run": 1,
+        "home": 1,
+    }
+
+
+def test_empty_text_yields_no_frequencies(keyword_analyzer):
+    assert keyword_analyzer.keyword_frequency("") == {}
+
+
+def test_keyword_at_the_very_end_counts(keyword_analyzer):
+    """The counting window must include a phrase ending at the last token."""
+    assert keyword_analyzer.keyword_density("Run fast then run", "run") == pytest.approx(200 / 3)
+
+
 def test_keyword_context_matches_only_complete_phrase(keyword_analyzer):
     text = "Artificial methods differ. Artificial methods improve intelligence. Artificial intelligence changes work."
 

@@ -50,7 +50,17 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "C", "B"]
-ignore = ["E501", "C901"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Complexity waivers, registered in docs/mutation-waivers.md: the 735-line
+# stylometry analyzer is deliberately not refactored in this pass, and these
+# sites keep their pre-existing shape rather than being restructured now.
+"server/stylometry/analyzer.py" = ["C901"]
+"server/analyzers/ai_detection.py" = ["C901"]
+"server/stylometry/corpus_baseline.py" = ["C901"]
+"server/stylometry/statistical.py" = ["C901"]
+"server/text_processing/markdown_parser.py" = ["C901"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -67,6 +77,29 @@ warn_unused_ignores = true
 # textstat ships no py.typed marker or stubs; its API is exercised by tests.
 module = "textstat"
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Hard stop for pathological mutants during mutation testing; the slowest
+# legitimate test finishes in seconds (spaCy model load is session-scoped).
+timeout = 60
+
+[tool.mutmut]
+# The whole server package is copied into the mutation shadow tree so imports
+# keep resolving; do_not_mutate keeps the torch-loading paths out of scope.
+# The tests anchor several checks on the repo root (the shadow-tree root), so
+# every root file they read must ride along unchanged.
+source_paths = ["server"]
+also_copy = ["benchmarks", "scripts", ".mcp-config.yaml", "pyproject.toml", "manifest.json", "run_server.py"]
+do_not_mutate = ["server/models/*", "server/analyzers/ai_detection.py"]
+# The subprocess test in test_logging_config.py launches `python -c` with a
+# tmp_path cwd; importing the shadow server package pulls in mutmut's
+# trampoline, which requires a resolvable mutmut config at import time —
+# impossible from that cwd. The in-process logging tests still cover the
+# same bootstrap/configure_logging mutants, so deselect it for mutant runs.
+pytest_add_cli_args = [
+    "--deselect", "tests/test_logging_config.py::TestServerStartup::test_loader_warnings_are_visible_and_stdout_stays_clean",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["server"]

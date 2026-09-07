@@ -101,3 +101,33 @@ class TestDuplicateHeadingReadability:
         assert sorted(sections) == ["## Setup", "## Usage", "### Example", "### Example (2)"]
         assert sections["### Example"] == self.analyzer.reading_time("Run the setup command here.")["full_text"]
         assert sections["### Example (2)"] == self.analyzer.reading_time("Run the usage command.")["full_text"]
+
+
+class TestSectionTextRendering:
+    """parse_markdown_sections renders section bodies with exact whitespace."""
+
+    STRESS_DOC = (
+        "Leading paragraph before any heading.\n\n"
+        "## Inline\n\n"
+        "A **bold** word, an *em* word, and `code span` end.\n"
+        "Soft line\n"
+        "break here.\n\n"
+        "## Blocks\n\n"
+        "```python\n"
+        "x = 1\n"
+        "```\n\n"
+        "Para one.\n\n"
+        "Para two.\n"
+    )
+
+    def test_inline_children_render_with_their_document_spacing(self):
+        result = parse_markdown_sections(self.STRESS_DOC)
+
+        # Removed emphasis markers leave double spaces; code spans keep backticks;
+        # soft line breaks stay single newlines.
+        assert result["## Inline"] == "A bold  word, an em  word, and `code span`  end.\nSoft line\nbreak here."
+
+    def test_fenced_code_and_paragraph_breaks_render_verbatim(self):
+        result = parse_markdown_sections(self.STRESS_DOC)
+
+        assert result["## Blocks"] == "```\nx = 1\n```\n\nPara one.\n\nPara two."
