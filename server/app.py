@@ -350,7 +350,7 @@ def perplexity_analysis(text: str, language: str = "en") -> dict:
 
 @mcp.tool()
 @auto_cleanup("spacy", "gpt2")
-def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: str = "en") -> dict:
+def stylometric_analysis(text: str, baseline: str | None = None, language: str = "en") -> dict:
     """
     Analyze text for stylometric features and detect AI-generated content.
 
@@ -360,7 +360,9 @@ def stylometric_analysis(text: str, baseline: str = "brown_corpus", language: st
 
     Args:
         text: Input text to analyze
-        baseline: Baseline corpus name ("brown_corpus" or custom baseline name)
+        baseline: Baseline corpus name; when omitted, the configured
+            stylometry.default_baseline (or "brown_corpus") is used. The response's
+            baseline_used field names the baseline actually measured against.
         language: Language code (only "en" supported currently)
 
     Returns:
