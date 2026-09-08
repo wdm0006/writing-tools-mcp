@@ -86,4 +86,7 @@ jobs:
         run: python benchmarks/calibrate_detection.py --check
 
       - name: Calibration generator tests
-        run: pytest tests/test_calibration.py -v
+        # --noconftest: the shared tests/conftest.py imports the server package
+        # (numpy, spaCy, torch), which this dependency-light job deliberately
+        # does not install. The calibration tests are self-contained.
+        run: pytest tests/test_calibration.py -v --noconftest
