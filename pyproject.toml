@@ -80,6 +80,9 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Make the repo root importable so tests can reach the benchmarks package
+# without depending on editable-install side effects.
+pythonpath = ["."]
 # Hard stop for pathological mutants during mutation testing; the slowest
 # legitimate test finishes in seconds (spaCy model load is session-scoped).
 timeout = 60
