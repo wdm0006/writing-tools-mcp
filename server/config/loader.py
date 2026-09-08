@@ -7,7 +7,7 @@ from typing import Any, Dict
 import yaml
 
 from server.config.defaults import DEFAULT_CONFIG
-from server.config.schema import CONFIG_SCHEMA, INTEGER, NUMBER, STRING, STRING_LIST
+from server.config.schema import CONFIG_SCHEMA, INTEGER, NUMBER, STRING
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +86,6 @@ def _matches_kind(value: Any, kind: str) -> bool:
         return isinstance(value, int)
     if kind == NUMBER:
         return isinstance(value, (int, float))
-    if kind == STRING_LIST:
-        return isinstance(value, list) and all(isinstance(item, str) for item in value)
     raise ValueError(f"Unknown schema kind: {kind!r}")
 
 
