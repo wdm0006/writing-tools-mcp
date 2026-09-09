@@ -16,6 +16,9 @@ stylometry:
     ai_confidence_threshold: 0.7
   custom_baselines_dir: "server/data/baselines/custom_baselines"
 
+model:
+  keep_warm_seconds: 0
+
 logging:
   level: "INFO"
   format: "%(asctime)s - %(levelname)s - %(message)s"
