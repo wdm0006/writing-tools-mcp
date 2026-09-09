@@ -29,6 +29,9 @@ CONFIG_SCHEMA = {
             "ai_confidence_threshold": NUMBER,
         },
     },
+    "model": {
+        "keep_warm_seconds": NUMBER,
+    },
     "logging": {
         "level": STRING,
         "format": STRING,

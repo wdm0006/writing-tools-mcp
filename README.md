@@ -82,6 +82,9 @@ stylometry:
     error_z: 3.0                  # |z| for an error
     ai_confidence_threshold: 0.7  # Confidence needed to flag AI authorship
 
+model:
+  keep_warm_seconds: 0  # Seconds to keep spaCy/GPT-2 resident between calls; 0 unloads after every call
+
 logging:
   level: "INFO"    # CRITICAL, ERROR, WARNING, INFO, or DEBUG
   format: "%(asctime)s - %(levelname)s - %(message)s"  # Standard `logging` format string
@@ -99,6 +102,23 @@ measured against in its `baseline_used` field. A config that still carries the r
 `stylometry.features` key logs an unknown-key warning on stderr and starts normally with the rest of
 its settings applied. `perplexity.language` remains accepted but unread; language is chosen per call
 through the `perplexity_analysis` argument.
+
+### Keep-warm models (`model.keep_warm_seconds`)
+
+By default (`0`) every model-backed tool call unloads the spaCy pipeline and the GPT-2 weights the
+moment it finishes: memory stays flat, and each call pays the model load. Setting
+`keep_warm_seconds` to a positive number turns that end-of-call cleanup into TTL-based eviction —
+for that many seconds after a model-backed call, the models stay resident and the next call skips
+the load entirely; the first call to finish after the window lapses runs the normal eviction.
+Eviction is checked on tool calls, not on a timer, so an idle server holds the memory until its
+next call. Explicit cleanup (the server's `cleanup_models` path) still unloads immediately
+regardless of this setting.
+
+The trade is memory for latency: with the default `gpt2` model, keeping both models resident costs
+roughly 100 MB of RSS (~55 MB for the spaCy pipeline and ~40 MB for the GPT-2 weights, measured on
+Linux; larger models configured via `perplexity.model_name` cost proportionally more). The default
+`0` keeps the lowest possible footprint and is the historical behavior — a load and an unload on
+every model-backed call.
 
 ### Detector calibration
 
