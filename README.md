@@ -184,6 +184,60 @@ reason alone, not necessarily because of authorship. Pass `char_ngram_top_k=0` t
 `server/data/baselines/custom_baselines/mcginniscommawill_pre2020.json` ships as a worked example: 102
 pre-2020 posts from [mcginniscommawill.com](https://mcginniscommawill.com), built with this script.
 
+## Domain Baselines
+
+Three shipped baselines cover genres that don't read like 1961 news and fiction, so
+`stylometric_analysis` can measure against prose closer to what you're writing. Load them by name
+exactly like the Brown Corpus baseline — `stylometric_analysis(text, baseline="essays")` — or make
+one the default in `.mcp-config.yaml`:
+
+```yaml
+stylometry:
+  default_baseline: "technical_docs"
+```
+
+Each baseline carries 27 statistics (vs Brown Corpus's 9), built with the default length-robust
+feature set. That set supports 9 of the 12 AI indicators (`uniform_sentences`,
+`unusual_sentence_length`, `pos_anomalies`, `unusual_reading_level`, `low_mtld`,
+`distinct_function_word_profile` via Burrows' Delta, `unusual_vocabulary_rarity`,
+`unusual_hedge_rate`, `unusual_booster_rate`) - five more than Brown Corpus's statistics support
+(`low_mtld`, `distinct_function_word_profile`, `unusual_vocabulary_rarity`, `unusual_hedge_rate`,
+`unusual_booster_rate` are unreachable against its 9-statistic set). The remaining three
+(`low_ttr`, `low_hapax`, `function_word_anomaly`) need length-confounded statistics the robust
+builder deliberately omits; they fire only against Brown Corpus, and only there.
+
+| Baseline | Register | Documents | Sources (all US public domain) |
+| --- | --- | --- | --- |
+| `essays` | reflective essay prose — first-person argumentative/expository writing | 144 | Montaigne, *Essays* (Cotton trans., 1877 ed., PG #3600); Emerson, *Essays, First Series* (1841, PG #2944); Emerson, *Essays, Second Series* (1844, PG #2945); Chesterton, *Orthodoxy* (1908, PG #130) |
+| `technical_docs` | instructional how-to and explanatory documentation | 834 | Milton & Wohlers, *A Course in Wood Turning* (1919, PG #15460); Noyes, *Handwork in Wood* (1910, PG #20846); Anderson, *Electricity for the Farm* (1915, PG #27257); *The Boy Mechanic, Vol. 1* (1913, PG #12655) |
+| `scientific_prose` | expository scientific writing | 52 | Darwin, *On the Origin of Species* (1859, PG #1228); Faraday, *Experimental Researches in Electricity, Vol. 1* (1831–1852, PG #14474); Einstein, *Relativity* (Lawson trans., 1920, PG #30155) |
+
+**License.** Every source work was published in the US before 1929 and is in the public domain;
+Project Gutenberg's license terms govern the *electronic transcriptions*, not the underlying texts.
+The shipped baselines contain only aggregate feature statistics (means and standard deviations) —
+no corpus text is redistributed. The corpora themselves are never committed; they're re-assembled
+from the pinned sources (see below).
+
+**Provenance and reproducibility.** Corpus assembly is scripted and deterministic:
+`scripts/fetch_domain_corpora.py` downloads each source from Project Gutenberg (or a mirror),
+verifies every download's SHA-256 against the pin recorded in its `WORKS` table, strips Gutenberg
+boilerplate and illustration captions, splits each work into documents at work-specific heading
+patterns (indexes and transcriber notes are skipped), and writes numbered `pg<id>_nnnn.txt` files.
+Running it twice produces byte-identical corpora, and rebuilding a baseline from the same corpora
+produces a byte-identical JSON (function-word statistics are serialized in a canonical order). To
+rebuild:
+
+```bash
+uv run python scripts/fetch_domain_corpora.py --corpora-root data/corpora
+uv run scripts/build_baseline.py essays data/corpora/essays --description "..."
+```
+
+Per-baseline source lists, heading/stop rules, and SHA-256 pins live in the `WORKS` table at the
+top of `scripts/fetch_domain_corpora.py`. The baselines ship in the wheel
+(`server/data/baselines/*.json`) and are covered by integration tests
+(`tests/test_domain_baselines.py`) for loadability, z-score generation, default-baseline
+configuration, and wheel bundling.
+
 ## Building the Bundle
 
 To create a `.mcpb` bundle for distribution:
