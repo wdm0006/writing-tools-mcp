@@ -93,6 +93,8 @@ multiple lines.""",
 }
 # Add full text paragraphs as well
 EXPECTED_SECTIONS["paragraphs"] = EXPECTED_PARAGRAPHS_FULL
+# Section metadata added by parse_markdown_sections: heading level per section key.
+EXPECTED_SECTIONS["_section_levels"] = {"# Section 1": 1, "## Subsection 1.1": 2, "# Section 2": 1}
 
 
 def test_split_paragraphs():
@@ -128,11 +130,19 @@ def test_parse_markdown_sections():
 
 
 def test_parse_markdown_no_headings():
-    """Test parsing markdown with no headings."""
+    """Test parsing markdown with no headings.
+
+    Defined behavior (W5): the whole document is preserved as a single
+    "_leading_content" section at heading level 0 — content is never dropped
+    for lack of a heading.
+    """
     text = "Just some text.\n\nAnother paragraph."
     expected = {
         "full_text": text,
         "paragraphs": ["Just some text.", "Another paragraph."],
+        "_section_levels": {"_leading_content": 0},
+        "_leading_content": text,
+        "_leading_content_paragraphs": ["Just some text.", "Another paragraph."],
     }
     assert parse_markdown_sections(text) == expected
 

@@ -24,8 +24,19 @@ UNIQUE_HEADINGS = "# Section 1\n\nContent for section one.\n\n## Subsection 1.1\
 
 
 def section_keys(sections_data):
-    """The heading keys of a parse result, excluding paragraph siblings."""
-    return [key for key in sections_data if key not in ("full_text", "paragraphs") and not key.endswith("_paragraphs")]
+    """The heading keys of a parse result, excluding metadata and paragraph siblings.
+
+    Mirrors the production consumers' filter — only string-valued keys that are
+    not "full_text"/"paragraphs" and not "_paragraphs" siblings — and also skips
+    the reserved "_leading_content" section, which has no heading.
+    """
+    return [
+        key
+        for key, value in sections_data.items()
+        if isinstance(value, str)
+        and key not in ("full_text", "paragraphs", "_leading_content")
+        and not key.endswith("_paragraphs")
+    ]
 
 
 class TestParseDuplicateHeadings:
