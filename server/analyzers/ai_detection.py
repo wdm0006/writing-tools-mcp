@@ -13,12 +13,27 @@ from server.stylometry import (
     calculate_char_ngram_similarity,
     calculate_sentence_z_scores,
     calculate_z_scores,
+    compute_statistic_deltas,
+    compute_verdicts,
     generate_flags,
     resolve_baseline_name,
 )
 from server.text_processing import split_into_sentences
 
 logger = logging.getLogger(__name__)
+
+
+def _delta_error(message: str, baseline_used: str) -> dict:
+    """The delta tool's error envelope: the tool family's ``{"error": ...}``
+    shape, with the delta-specific keys present but empty so callers can
+    destructure the response without shape-switching."""
+    return {
+        "error": message,
+        "baseline_used": baseline_used,
+        "deltas": [],
+        "verdict": [],
+        "text_b_analysis": None,
+    }
 
 
 class AIDetectionAnalyzer:
@@ -284,6 +299,50 @@ class AIDetectionAnalyzer:
                 "char_ngram_similarity": None,
                 "config": {"baseline": baseline_used, "thresholds": thresholds},
             }
+
+    def stylometric_delta(self, text_a: str, text_b: str, baseline: str | None = None) -> dict:
+        """
+        Compare a draft (``text_a``) against its revision (``text_b``) against one baseline.
+
+        Both texts are profiled by :meth:`stylometric_analysis` against the same
+        baseline — the configured ``stylometry.default_baseline`` when ``baseline``
+        is omitted — and the response reports what the revision actually moved:
+        per-statistic z-score deltas, an improved/regressed/unchanged verdict per
+        statistic, and the revised text's full stylometric profile, so the
+        response carries the evidence for its own findings.
+
+        A statistic improves when the revision moves its z-score closer to zero
+        (into the baseline's range) and regresses when the movement pushes it
+        further out; only statistics measurable in both texts are compared.
+        """
+        baseline_used = resolve_baseline_name(baseline, self.config)
+
+        if not text_a.strip():
+            return _delta_error("Empty text_a provided", baseline_used)
+        if not text_b.strip():
+            return _delta_error("Empty text_b provided", baseline_used)
+
+        try:
+            analysis_a = self.stylometric_analysis(text_a, baseline_used, "en")
+            if "error" in analysis_a:
+                return _delta_error(str(analysis_a["error"]), baseline_used)
+
+            analysis_b = self.stylometric_analysis(text_b, baseline_used, "en")
+            if "error" in analysis_b:
+                return _delta_error(str(analysis_b["error"]), baseline_used)
+
+            deltas = compute_statistic_deltas(analysis_a["z_scores"], analysis_b["z_scores"])
+
+            return {
+                "baseline_used": baseline_used,
+                "deltas": deltas,
+                "verdict": compute_verdicts(deltas),
+                "text_b_analysis": analysis_b,
+            }
+
+        except Exception as e:
+            logger.error(f"Error in stylometric delta analysis: {e}")
+            return _delta_error(f"Analysis failed: {str(e)}", baseline_used)
 
     def _chunk_text(self, text, tokenizer, max_length=512, overlap=50):
         """Split text into overlapping chunks for processing long texts."""

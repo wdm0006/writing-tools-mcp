@@ -421,6 +421,50 @@ def stylometric_analysis(text: str, baseline: str | None = None, language: str =
     return result
 
 
+@mcp.tool()
+@auto_cleanup("spacy", "gpt2")
+def stylometric_delta(text_a: str, text_b: str, baseline: str | None = None) -> dict:
+    """
+    Verify a revision: profile a draft (text_a) and its revision (text_b) against one
+    baseline and report what the revision actually moved.
+
+    Both texts are analyzed with the same stylometric pipeline against the same
+    baseline, and every statistic the baseline can measure in BOTH texts is reported
+    as a movement: the two z-scores, their difference, and whether the revision moved
+    that dimension toward the baseline's range (improved), away from it (regressed),
+    or left it in place (unchanged).
+
+    Args:
+        text_a: The draft text (the "before").
+        text_b: The revised text (the "after").
+        baseline: Baseline corpus name both texts are measured against. When omitted,
+            the configured stylometry.default_baseline (or "brown_corpus") is used;
+            the response's baseline_used field names the baseline actually used.
+
+    Returns:
+        dict: Delta analysis including:
+              - `baseline_used` (`str`): The baseline both texts were measured against.
+              - `deltas` (`list`): One `{statistic, z_a, z_b, delta, direction}` entry
+                per shared statistic (sorted by name), where `delta = z_b - z_a` and
+                `direction` is "increased", "decreased", or "none" — the raw movement,
+                independent of whether it helped.
+              - `verdict` (`list`): One `{statistic, verdict}` entry per delta, with
+                verdict "improved" when |z_b| < |z_a| (closer to the baseline's
+                range), "regressed" when |z_b| > |z_a|, and "unchanged" otherwise.
+              - `text_b_analysis` (`dict`): The revised text's full stylometric
+                analysis (the same shape `stylometric_analysis` returns).
+              - `findings` (`list`): Actionable, located observations about the
+                revised text (see `server/analyzers/findings.py`).
+
+              Error responses (missing baseline, an empty text) keep the family's
+              `{"error": str}` shape with the delta keys present but empty.
+    """
+    result = get_analyzers()["ai_detection"].stylometric_delta(text_a, text_b, baseline)
+    if "error" not in result:
+        result["findings"] = order_by_impact(from_stylometry(result["text_b_analysis"]))
+    return result
+
+
 @mcp.prompt()
 def guided_revision(document: str, findings: str | None = None) -> str:
     """Build an impact-ordered revision brief for a document.
