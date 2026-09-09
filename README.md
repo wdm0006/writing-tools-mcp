@@ -99,6 +99,17 @@ rather than stopping the server.
 language are chosen per call through the `stylometric_analysis` and `perplexity_analysis`
 arguments.
 
+### Detector calibration
+
+The detection thresholds above are measured against the committed benchmark corpus:
+[`docs/calibration.md`](docs/calibration.md) publishes confusion matrices for the shipped flags and
+precision/recall/FPR at target true-positive rates for each detector's single measurement. On that
+sample (110 human / 110 machine documents), the shipped stylometry flag detects about 9% of
+machine text at a 1% false-positive rate and the shipped perplexity flag fires on none of it —
+higher recall is available at higher false-positive cost, per the published tables. The file is
+regenerated with `uv run benchmarks/calibrate_detection.py` from the benchmark scores; CI fails
+when it drifts, so a threshold change must re-derive the published numbers.
+
 ## Custom Baselines
 
 `stylometric_analysis` compares a text's features against a baseline (`brown_corpus` by default)

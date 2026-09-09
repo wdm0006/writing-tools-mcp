@@ -63,3 +63,30 @@ jobs:
       - name: Test entry point resolves
         run: |
           uv run python -c "import importlib.util; spec = importlib.util.find_spec('server.app'); assert spec and spec.origin and spec.origin.endswith('app.py'), spec; from server.app import main; assert callable(main); print('Entry point server.app:main resolves')"
+
+  calibration-drift:
+    # The published docs/calibration.md is derived from the committed benchmark
+    # scores. This job regenerates it and fails when the committed table no
+    # longer matches, so any threshold change must re-derive the published
+    # numbers. Deliberately dependency-light: the generator is stdlib-only.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Regenerate the calibration table and fail on drift
+        run: python benchmarks/calibrate_detection.py --check
+
+      - name: Calibration generator tests
+        # --noconftest: the shared tests/conftest.py imports the server package
+        # (numpy, spaCy, torch), which this dependency-light job deliberately
+        # does not install. The calibration tests are self-contained.
+        run: pytest tests/test_calibration.py -v --noconftest
