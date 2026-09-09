@@ -159,11 +159,11 @@ class TestPromptRegistryIntegration:
         rendered = asyncio.run(scenario())
         assert "Structure" in rendered
 
-    def test_tool_registry_still_lists_fourteen_tools(self):
+    def test_tool_registry_still_lists_fifteen_tools(self):
         """The prompt decorators must not disturb tool registration (13 analysis
-        tools + the stylometric_delta verification tool)."""
+        tools + the stylometric_delta verification tool + analyze_sections)."""
         tools = asyncio.run(app.mcp.list_tools())
-        assert len(tools) == 14
+        assert len(tools) == 15
 
 
 @pytest.mark.parametrize(
