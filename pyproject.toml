@@ -29,6 +29,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "hatchling",  # wheel-content tests build the real artifact
     "packaging",
     "ruff",
     "pytest",
