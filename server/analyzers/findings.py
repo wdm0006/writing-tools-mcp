@@ -125,13 +125,17 @@ def from_readability_result(result: dict[str, Any]) -> list[Finding]:
     return from_readability(result, "full_text")
 
 
-def from_perplexity(result: dict[str, Any]) -> list[Finding]:
+def from_perplexity(result: dict[str, Any], location: str = "document") -> list[Finding]:
     """Build findings from a successful ``perplexity_analysis`` response.
 
     The document-level finding fires only on the detector's own verdict
     (``high_ai_probability``) — ambiguous reasons without the flag are not
     findings. When the flag is on, per-sentence findings locate the most
     predictable sentences so a revision has concrete targets.
+
+    ``location`` re-anchors the findings when the same response shape is built
+    for a region inside a larger document (e.g. ``section:## Notes``); with
+    the default it reproduces the standalone tool's locations exactly.
     """
     flags = result.get("flags", {})
     if not flags.get("high_ai_probability"):
@@ -143,7 +147,7 @@ def from_perplexity(result: dict[str, Any]) -> list[Finding]:
     findings: list[Finding] = [
         Finding(
             rule="high_ai_probability",
-            location="document",
+            location=location,
             message=(
                 f"GPT-2 perplexity {result.get('doc_ppl')} with burstiness {result.get('doc_burstiness')}: "
                 "the document reads as statistically predictable and uniformly so"
@@ -161,7 +165,10 @@ def from_perplexity(result: dict[str, Any]) -> list[Finding]:
             findings.append(
                 Finding(
                     rule="low_sentence_perplexity",
-                    location=f"s{index}",
+                    # Default keeps the standalone tool's bare "s<n>" locations;
+                    # a re-anchored region prefixes them so findings from
+                    # different regions stay distinguishable when flattened.
+                    location=f"s{index}" if location == "document" else f"{location} s{index}",
                     message=f"sentence perplexity {ppl} is below the {ppl_max} predictability line",
                     fix_hint=(
                         "rewrite this sentence with more varied vocabulary and a concrete detail "
@@ -271,13 +278,17 @@ def _indicator_message(indicator: str, z_keys: list[str], z_scores: dict[str, An
     return description
 
 
-def from_stylometry(result: dict[str, Any]) -> list[Finding]:
+def from_stylometry(result: dict[str, Any], location: str = "document") -> list[Finding]:
     """Build findings from a successful ``stylometric_analysis`` response.
 
     Driven entirely by ``z_scores`` and the detector ``flags``: indicator
     findings carry curated fix hints, the overall verdict becomes the headline
     finding, and remaining statistical outliers (features flagged far from the
     baseline that no indicator already interprets) become their own findings.
+
+    ``location`` re-anchors the findings when the same response shape is built
+    for a region inside a larger document (e.g. ``section:## Notes``); with
+    the default it reproduces the standalone tool's locations exactly.
     """
     flags = result.get("flags", {})
     z_scores = result.get("z_scores", {})
@@ -289,7 +300,7 @@ def from_stylometry(result: dict[str, Any]) -> list[Finding]:
         findings.append(
             Finding(
                 rule="high_ai_probability",
-                location="document",
+                location=location,
                 message=(
                     f"stylometric confidence {flags.get('confidence_score')} ({flags.get('ai_detection_confidence')}) "
                     f"from {len(indicators)} converging indicator(s)"
@@ -308,7 +319,7 @@ def from_stylometry(result: dict[str, Any]) -> list[Finding]:
         findings.append(
             Finding(
                 rule=str(indicator),
-                location="document",
+                location=location,
                 message=_indicator_message(str(indicator), z_keys, z_scores),
                 fix_hint=_INDICATOR_PROFILE.get(
                     indicator, ("", "", "compare the draft with baseline-register writing and revise the flagged habit")
@@ -329,7 +340,7 @@ def from_stylometry(result: dict[str, Any]) -> list[Finding]:
         findings.append(
             Finding(
                 rule=f"{feature}_outlier",
-                location="document",
+                location=location,
                 message=f"{feature} {detail}",
                 fix_hint=(
                     "compare this aspect of the draft with the baseline register, revise toward its range, "

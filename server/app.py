@@ -24,6 +24,11 @@ from server.analyzers.findings import (
     from_top_keywords,
     order_by_impact,
 )
+from server.analyzers.section_analysis import (
+    analyze_document_sections,
+    models_for_selection,
+    resolve_selection,
+)
 
 # Configuration imports
 from server.config import load_config
@@ -419,6 +424,64 @@ def stylometric_analysis(text: str, baseline: str | None = None, language: str =
     if "error" not in result:
         result["findings"] = order_by_impact(from_stylometry(result))
     return result
+
+
+@mcp.tool()
+def analyze_sections(text: str, tools: list[str] | None = None, baseline: str | None = None) -> dict:
+    """
+    Run a selected subset of the analysis tools on every markdown section of a
+    document, plus a whole-document rollup.
+
+    Sections come from parse_markdown_sections: heading-keyed and hierarchy-aware
+    (a subsection's body folds into its parent), with pre-first-heading content
+    preserved as its own "_leading_content" section (heading level 0). Each
+    section entry carries `key`, `heading_level`, the rendered section `text`,
+    an impact-ordered `findings` array (the shared findings shape, located at
+    "section:<key>"), and per-tool `results` — each exactly the response that
+    tool returns for the section text at its default settings. The `rollup`
+    carries each selected tool's whole-document response (findings included),
+    identical to the standalone tool's output. An empty document yields no
+    sections with the rollup still computed; a document with no headings yields
+    the single "_leading_content" section.
+
+    Args:
+        text: The markdown document to analyze.
+        tools: The analysis tools to run per section. Choose from: readability,
+               word_count, character_count, reading_time, spellcheck,
+               passive_voice, perplexity, stylometry. Defaults to everything
+               except the GPT-2 tools (perplexity and stylometry stay opt-in).
+               Unknown names yield {"error": ...}.
+        baseline: Baseline name passed through to the per-section and rollup
+                  stylometry runs (ignored unless "stylometry" is selected).
+
+    Returns:
+        dict: {"sections": [...], "rollup": {tool: whole-document response},
+               "tools_used": [...], "section_count": int}.
+    """
+    try:
+        selection = resolve_selection(tools)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+    needed_models = models_for_selection(selection)
+    analyzers = get_analyzers() if needed_models else get_model_independent_analyzers()
+
+    try:
+        return analyze_document_sections(
+            text,
+            selection,
+            basic_stats=analyzers["basic_stats"],
+            readability=analyzers["readability"],
+            style=analyzers.get("style"),
+            ai_detection=analyzers.get("ai_detection"),
+            baseline=baseline,
+        )
+    finally:
+        # Release only the tiers this selection used: a counts-and-readability
+        # scan never triggers a model load, and a spaCy-only scan must not
+        # unload the GPT-2 weights the way a blanket @auto_cleanup would.
+        if needed_models:
+            cleanup_models(*needed_models)
 
 
 @mcp.prompt()
