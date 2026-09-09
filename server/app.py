@@ -31,7 +31,7 @@ from server.config.defaults import DEFAULT_CONFIG
 
 # Model imports
 from server.models import initialize_models
-from server.prompts import render_guided_revision, render_writing_checklist
+from server.prompts import render_guided_revision, render_verify_revision, render_writing_checklist
 
 # Text processing imports
 from server.text_processing import initialize_preprocessor
@@ -494,6 +494,24 @@ def writing_checklist() -> str:
         str: The rendered checklist.
     """
     return render_writing_checklist()
+
+
+@mcp.prompt()
+def verify_revision(delta: str) -> str:
+    """Render a stylometric_delta response as a revision verdict an agent can act on.
+
+    Args:
+        delta: JSON string — the full response dict the `stylometric_delta` tool
+               returned (its `deltas`, `verdict`, `findings`, and `baseline_used`).
+               Each verdict is grouped improved/regressed/unchanged with the
+               z-score movement behind it, followed by the findings for the
+               revised text. Malformed input degrades into guidance (a NOTE)
+               rather than an error.
+
+    Returns:
+        str: The rendered revision verdict.
+    """
+    return render_verify_revision(delta)
 
 
 def main():
