@@ -41,6 +41,8 @@ STYLOMETRY_BASE_KEYS = {
     "config",
     "flags",
     "char_ngram_similarity",
+    # Additive since #59: every path names the baseline actually measured against.
+    "baseline_used",
 }
 
 # Indicators whose z-scores do not exist in a 9-statistic baseline like brown_corpus:
