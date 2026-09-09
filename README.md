@@ -75,15 +75,12 @@ perplexity:
     burstiness_min: 2.5  # Burstiness below this counts as an AI signal
 
 stylometry:
-  default_baseline: "brown_corpus"
-  custom_baselines_dir: "server/data/baselines/custom_baselines"
+  default_baseline: "brown_corpus"  # Used when a stylometric_analysis call omits baseline
+  custom_baselines_dir: "server/data/baselines/custom_baselines"  # Relative paths resolve against the server's working directory
   thresholds:
     warning_z: 2.0                # |z| for a warning
     error_z: 3.0                  # |z| for an error
     ai_confidence_threshold: 0.7  # Confidence needed to flag AI authorship
-  features:
-    enabled: ["sentence_length", "ttr", "hapax", "pos_ratios", "punctuation", "function_words"]
-    pos_tags: ["NOUN", "VERB", "ADJ", "ADV", "ADP", "DET", "PRON", "CONJ", "NUM", "PART"]
 
 logging:
   level: "INFO"    # CRITICAL, ERROR, WARNING, INFO, or DEBUG
@@ -94,10 +91,14 @@ Set `logging.level: "DEBUG"` when reporting a problem. Logs are always written t
 carries the MCP JSON-RPC stream — and an unrecognized level falls back to `INFO` with a warning
 rather than stopping the server.
 
-`perplexity.language`, `stylometry.default_baseline`, `stylometry.custom_baselines_dir` and
-`stylometry.features` are accepted and type-checked, but nothing reads them yet; the baseline and
-language are chosen per call through the `stylometric_analysis` and `perplexity_analysis`
-arguments.
+`stylometry.default_baseline` selects the baseline `stylometric_analysis` measures against when a call
+omits the `baseline` argument, and `stylometry.custom_baselines_dir` is where custom baselines are
+saved and loaded from - relative paths resolve against the server's working directory, the same place
+`.mcp-config.yaml` is read from. Every `stylometric_analysis` response reports the baseline actually
+measured against in its `baseline_used` field. A config that still carries the removed
+`stylometry.features` key logs an unknown-key warning on stderr and starts normally with the rest of
+its settings applied. `perplexity.language` remains accepted but unread; language is chosen per call
+through the `perplexity_analysis` argument.
 
 ### Detector calibration
 
@@ -124,8 +125,10 @@ uv run scripts/build_baseline.py my_own_voice path/to/txt/files/
 
 Each `*.txt` file in the directory is treated as one document (strip front matter, markdown, and
 code fences first - the script analyzes exactly the text it's given). The baseline is saved under
-`server/data/baselines/custom_baselines/` (inside the `server` package, so it is found whether the
-server runs from a checkout or an installed wheel) and is immediately usable:
+`stylometry.custom_baselines_dir` from your `.mcp-config.yaml` (the shipped config points it at
+`server/data/baselines/custom_baselines`, relative to the server's working directory; without a
+configured directory, the `custom_baselines/` folder inside the `server` package is used) and is
+immediately usable:
 
 ```
 stylometric_analysis(text, baseline="my_own_voice")
@@ -359,7 +362,7 @@ Below is a detailed reference for each tool provided by the server.
 *   **Description**: Analyze text for stylometric features and detect AI-generated content. Computes sentence length distribution, lexical diversity (TTR/Hapax, plus the length-robust `mtld`/`mattr`/`mtld_lemma`) and vocabulary rarity (`mean_word_frequency`, via `wordfreq`), POS ratios and a curated POS-bigram profile, six readability grade-level formulas (Fog, Kincaid, SMOG, Coleman-Liau, ARI, Dale-Chall), syntactic complexity from the dependency parse (`mean_dependency_distance`, `subordinate_clause_ratio`), punctuation idiosyncrasies (semicolon/em-dash/ellipsis/exclamation/parenthetical rate), hedge/booster epistemic-marker rates, n-gram repetition and Zipf-slope, a per-function-word frequency profile reduced to a Burrows' Delta score, and a character n-gram orthographic profile compared via cosine similarity. Flags outliers relative to a baseline (built-in `brown_corpus`, or a [custom baseline](#custom-baselines) built from your own writing) using z-score analysis.
 *   **Parameters**:
     *   `text` (`str`): The text to analyze.
-    *   `baseline` (`str`, optional, default=`"brown_corpus"`): Baseline corpus name for comparison. See [Custom Baselines](#custom-baselines) to build your own.
+    *   `baseline` (`str`, optional): Baseline corpus name for comparison. When omitted, the configured `stylometry.default_baseline` (or `"brown_corpus"`) is used; the response's `baseline_used` field names the baseline actually measured against. See [Custom Baselines](#custom-baselines) to build your own.
     *   `language` (`str`, optional, default=`"en"`): Language code (only "en" supported currently).
 *   **Returns**: `dict` - Stylometric analysis including:
     *   `features` (`dict`): Extracted stylometric features (sentence length, TTR/hapax/`mtld`/`mattr`/`mtld_lemma`, `mean_word_frequency`, `word_len_std`, `lexical_density`, POS ratios, `pos_bigram_ratios`, `fog`/`kincaid`/`smog`/`coleman_liau`/`ari`/`dale_chall`, `mean_dependency_distance`, `subordinate_clause_ratio`, punctuation-idiosyncrasy ratios, `hedge_rate`/`booster_rate`, `fourgram_repetition_rate`, `zipf_slope`, `function_word_freqs`, etc. - `char_ngram_profile` is computed internally for `char_ngram_similarity` below but omitted here, as a several-hundred-entry intermediate)
@@ -367,6 +370,7 @@ Below is a detailed reference for each tool provided by the server.
     *   `flags` (`dict`): AI detection flags with confidence levels and explanations
     *   `sentence_analysis` (`list`): Per-sentence analysis with z-scores
     *   `char_ngram_similarity` (`float | null`): Cosine similarity between this text's character n-gram profile and the baseline's (see [Custom Baselines](#custom-baselines)); `null` when the baseline has no character n-gram profile (e.g. `brown_corpus`)
+    *   `baseline_used` (`str`): Name of the baseline the analysis was measured against - the explicit `baseline` argument, the configured `stylometry.default_baseline`, or `"brown_corpus"`
     *   `config` (`dict`): Baseline information and analysis thresholds
 
 ---

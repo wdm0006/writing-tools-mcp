@@ -11,6 +11,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "device": "cpu",
         "language": "en",
     },
-    "stylometry": {"thresholds": {"warning_z": 2.0, "error_z": 3.0, "ai_confidence_threshold": 0.7}},
+    "stylometry": {
+        "default_baseline": "brown_corpus",
+        "thresholds": {"warning_z": 2.0, "error_z": 3.0, "ai_confidence_threshold": 0.7},
+    },
     "logging": {"level": "INFO", "format": "%(asctime)s - %(levelname)s - %(message)s"},
 }

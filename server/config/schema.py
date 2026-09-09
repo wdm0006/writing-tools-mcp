@@ -3,7 +3,6 @@
 STRING = "a string"
 INTEGER = "an integer"
 NUMBER = "a number"
-STRING_LIST = "a list of strings"
 
 # Every key a user may set. Nested mappings are described by nested dictionaries;
 # leaves carry the expected value kind. Keys outside this schema are rejected by
@@ -28,10 +27,6 @@ CONFIG_SCHEMA = {
             "warning_z": NUMBER,
             "error_z": NUMBER,
             "ai_confidence_threshold": NUMBER,
-        },
-        "features": {
-            "enabled": STRING_LIST,
-            "pos_tags": STRING_LIST,
         },
     },
     "logging": {

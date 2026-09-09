@@ -60,7 +60,9 @@ def main() -> None:
         min_words=args.min_words,
     )
 
-    manager = BaselineManager()
+    # Pass the config through so the save root honors stylometry.custom_baselines_dir,
+    # matching where a config-driven server loads baselines from.
+    manager = BaselineManager(config)
     if not manager.save_baseline(args.name, baseline):
         raise SystemExit(f"Failed to save baseline '{args.name}'")
 

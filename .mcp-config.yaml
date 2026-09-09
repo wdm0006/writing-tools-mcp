@@ -15,9 +15,6 @@ stylometry:
     error_z: 3.0
     ai_confidence_threshold: 0.7
   custom_baselines_dir: "server/data/baselines/custom_baselines"
-  features:
-    enabled: ["sentence_length", "ttr", "hapax", "pos_ratios", "punctuation", "function_words"]
-    pos_tags: ["NOUN", "VERB", "ADJ", "ADV", "ADP", "DET", "PRON", "CONJ", "NUM", "PART"] 
 
 logging:
   level: "INFO"

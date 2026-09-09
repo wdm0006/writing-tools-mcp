@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 BASELINES_DIR = Path(__file__).parent.parent / "data" / "baselines"
 CUSTOM_BASELINES_SUBDIR = "custom_baselines"
 
+#: Baseline used when a call omits one and no ``stylometry.default_baseline`` is configured.
+DEFAULT_BASELINE_NAME = "brown_corpus"
+
 _SAFE_BASELINE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
@@ -62,6 +65,56 @@ def _resolve_baseline_file(directory: Path, baseline_name: str) -> Optional[Path
     return candidate
 
 
+def custom_baselines_dir_from_config(config: Optional[Dict[str, Any]]) -> Optional[Path]:
+    """
+    Resolve ``stylometry.custom_baselines_dir`` to an absolute directory.
+
+    Relative paths resolve against the server's working directory — the same anchor
+    ``load_config`` uses for ``.mcp-config.yaml`` — so a path written in the config
+    stays relative to where the server runs. Returns None when unset (or set to a
+    non-string/empty value in a hand-built config), which keeps the built-in package
+    directory as the save/load root.
+
+    Args:
+        config: Configuration dictionary (or None)
+
+    Returns:
+        The resolved directory, or None when no usable directory is configured
+    """
+    stylometry_config = (config or {}).get("stylometry", {})
+    configured = stylometry_config.get("custom_baselines_dir") if isinstance(stylometry_config, dict) else None
+    if not isinstance(configured, str) or not configured.strip():
+        return None
+    return Path(configured).expanduser().resolve()
+
+
+def resolve_baseline_name(baseline: Optional[str], config: Optional[Dict[str, Any]]) -> str:
+    """
+    Pick the baseline a stylometry call measures against.
+
+    An explicit per-call argument wins; otherwise the configured
+    ``stylometry.default_baseline``; otherwise the built-in default. Empty or
+    whitespace-only values count as omitted at each step, so the response's
+    ``baseline_used`` always names a concrete baseline.
+
+    Args:
+        baseline: Baseline name passed by the caller, or None when omitted
+        config: Configuration dictionary (or None)
+
+    Returns:
+        The baseline name to measure against
+    """
+    if baseline and baseline.strip():
+        return baseline
+
+    stylometry_config = (config or {}).get("stylometry", {})
+    configured = stylometry_config.get("default_baseline") if isinstance(stylometry_config, dict) else None
+    if isinstance(configured, str) and configured.strip():
+        return configured
+
+    return DEFAULT_BASELINE_NAME
+
+
 class BaselineManager:
     """Manager for loading and handling stylometric baselines."""
 
@@ -70,11 +123,28 @@ class BaselineManager:
         Initialize baseline manager.
 
         Args:
-            config: Optional configuration dictionary
+            config: Optional configuration dictionary. ``stylometry.custom_baselines_dir``
+                selects where custom baselines are saved and loaded from; when unset,
+                the built-in package directory keeps that role.
         """
         self.config = config or {}
+        self.custom_baselines_dir = custom_baselines_dir_from_config(self.config)
+        if self.custom_baselines_dir is not None:
+            logger.info(f"Custom baselines directory: {self.custom_baselines_dir}")
         self.baselines: dict[str, dict[str, Any]] = {}
         self._load_default_baselines()
+
+    def _search_directories(self) -> tuple[Path, ...]:
+        """Directories searched for file-based baselines, most specific first.
+
+        With a configured custom directory it wins over the package locations, so a
+        user-built baseline shadows a same-named shipped file; the package custom
+        subdir and built-in root stay reachable so baselines saved before a custom
+        directory was configured (and shipped examples) still load.
+        """
+        if self.custom_baselines_dir is not None:
+            return (self.custom_baselines_dir, BASELINES_DIR / CUSTOM_BASELINES_SUBDIR, BASELINES_DIR)
+        return (BASELINES_DIR, BASELINES_DIR / CUSTOM_BASELINES_SUBDIR)
 
     def _load_default_baselines(self):
         """Load built-in baselines."""
@@ -130,7 +200,7 @@ class BaselineManager:
         """
         _validate_baseline_name(baseline_name)
 
-        for directory in (BASELINES_DIR, BASELINES_DIR / CUSTOM_BASELINES_SUBDIR):
+        for directory in self._search_directories():
             baseline_file = _resolve_baseline_file(directory, baseline_name)
             if baseline_file is not None and baseline_file.is_file():
                 return baseline_file
@@ -202,7 +272,16 @@ class BaselineManager:
         """
         _validate_baseline_name(baseline_name)
 
-        data_dir = BASELINES_DIR / CUSTOM_BASELINES_SUBDIR if custom else BASELINES_DIR
+        if custom:
+            # A configured custom_baselines_dir replaces the package custom subdir
+            # as the save root; without one, behavior is unchanged.
+            data_dir = (
+                self.custom_baselines_dir
+                if self.custom_baselines_dir is not None
+                else BASELINES_DIR / CUSTOM_BASELINES_SUBDIR
+            )
+        else:
+            data_dir = BASELINES_DIR
 
         try:
             data_dir.mkdir(parents=True, exist_ok=True)
@@ -238,21 +317,16 @@ class BaselineManager:
             else:
                 available[name] = "Custom baseline"
 
-        # Check for file-based baselines
-        data_dir = BASELINES_DIR
-        if data_dir.exists():
-            for baseline_file in data_dir.glob("*.json"):
+        # Check file-based baselines, most specific source first. The built-in root
+        # holds shipped file-backed baselines; everything else is user (or example) content.
+        for directory in self._search_directories():
+            if not directory.exists():
+                continue
+            label = "File-based baseline" if directory == BASELINES_DIR else "Custom baseline"
+            for baseline_file in directory.glob("*.json"):
                 name = baseline_file.stem
                 if name not in available:
-                    available[name] = "File-based baseline"
-
-        # Check custom baselines directory
-        custom_dir = data_dir / CUSTOM_BASELINES_SUBDIR
-        if custom_dir.exists():
-            for baseline_file in custom_dir.glob("*.json"):
-                name = baseline_file.stem
-                if name not in available:
-                    available[name] = "Custom baseline"
+                    available[name] = label
 
         return available
 

@@ -76,6 +76,7 @@ class TestConfigStructure:
         stylometry_config = config["stylometry"]
 
         assert "thresholds" in stylometry_config
+        assert stylometry_config["default_baseline"] == DEFAULT_CONFIG["stylometry"]["default_baseline"]
         thresholds = stylometry_config["thresholds"]
 
         required_thresholds = ["warning_z", "error_z", "ai_confidence_threshold"]
@@ -238,15 +239,23 @@ class TestWrongTypes:
         assert config["perplexity"]["model_name"] == "gpt2"
         assert "'perplexity.model_name' must be a string, got int" in caplog.text
 
-    def test_feature_list_with_non_string_entries(self, tmp_path, caplog):
-        """A list value is checked element by element."""
-        path = _write_config(tmp_path, "stylometry:\n  features:\n    pos_tags: [NOUN, 3]\n")
+    def test_legacy_features_key_warns_and_is_dropped(self, tmp_path, caplog):
+        """A pre-removal config carrying `stylometry.features` warns, drops the key, and still loads.
+
+        `features` was removed from the schema once it became clear nothing read it; configs
+        that still set it degrade to defaults through the same unknown-key path as any typo.
+        """
+        path = _write_config(
+            tmp_path,
+            "stylometry:\n  features:\n    enabled: [sentence_length, ttr]\n    pos_tags: [NOUN, VERB]\n",
+        )
 
         with caplog.at_level(logging.WARNING):
             config = load_config(path)
 
-        assert "pos_tags" not in config["stylometry"].get("features", {})
-        assert "'stylometry.features.pos_tags' must be a list of strings, got list" in caplog.text
+        assert "features" not in config["stylometry"]
+        assert "stylometry.features" in caplog.text
+        assert config["stylometry"]["thresholds"]["warning_z"] == 2.0
 
     def test_config_file_containing_a_scalar(self, tmp_path, caplog):
         """A YAML document that is not a mapping falls back to the defaults."""
@@ -313,6 +322,8 @@ class TestSchemaCoverage:
         "stylometry.thresholds.warning_z",
         "stylometry.thresholds.error_z",
         "stylometry.thresholds.ai_confidence_threshold",
+        "stylometry.default_baseline",
+        "stylometry.custom_baselines_dir",
         "logging.level",
         "logging.format",
     ]

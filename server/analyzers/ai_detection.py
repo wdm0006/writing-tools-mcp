@@ -14,6 +14,7 @@ from server.stylometry import (
     calculate_sentence_z_scores,
     calculate_z_scores,
     generate_flags,
+    resolve_baseline_name,
 )
 from server.text_processing import split_into_sentences
 
@@ -31,7 +32,8 @@ class AIDetectionAnalyzer:
         # Initialize stylometry components
         if nlp_model:
             self.stylometry_analyzer = StylemetricAnalyzer(nlp_model)
-        self.baseline_manager = BaselineManager()
+        # Config-driven: stylometry.custom_baselines_dir selects the custom save/load root.
+        self.baseline_manager = BaselineManager(config)
 
     def perplexity_analysis(self, text: str, language: str = "en") -> dict:
         """
@@ -161,13 +163,20 @@ class AIDetectionAnalyzer:
                 "flags": {"high_ai_probability": False, "reasons": []},
             }
 
-    def stylometric_analysis(self, text: str, baseline: str = "brown_corpus", language: str = "en") -> dict:
+    def stylometric_analysis(self, text: str, baseline: str | None = None, language: str = "en") -> dict:
         """
         Analyze text for stylometric features and detect AI-generated content.
+
+        An omitted ``baseline`` resolves to the configured ``stylometry.default_baseline``,
+        falling back to the built-in default; every response reports the baseline actually
+        measured against in ``baseline_used``.
         """
+        baseline_used = resolve_baseline_name(baseline, self.config)
+
         if language != "en":
             return {
                 "error": "Only English language ('en') is currently supported",
+                "baseline_used": baseline_used,
                 "features": {},
                 "z_scores": {},
                 "flags": {"high_ai_probability": False, "reasons": []},
@@ -179,6 +188,7 @@ class AIDetectionAnalyzer:
         if not text.strip():
             return {
                 "error": "Empty text provided",
+                "baseline_used": baseline_used,
                 "features": {},
                 "z_scores": {},
                 "flags": {"high_ai_probability": False, "reasons": []},
@@ -196,17 +206,18 @@ class AIDetectionAnalyzer:
 
             # Load baseline
             try:
-                baseline_data = self.baseline_manager.load_baseline(baseline)
+                baseline_data = self.baseline_manager.load_baseline(baseline_used)
                 baseline_stats = baseline_data.get("statistics", {})
             except ValueError as e:
                 return {
-                    "error": f"Failed to load baseline '{baseline}': {str(e)}",
+                    "error": f"Failed to load baseline '{baseline_used}': {str(e)}",
+                    "baseline_used": baseline_used,
                     "features": {},
                     "z_scores": {},
                     "flags": {"high_ai_probability": False, "reasons": []},
                     "sentence_analysis": [],
                     "char_ngram_similarity": None,
-                    "config": {"baseline": baseline, "thresholds": thresholds},
+                    "config": {"baseline": baseline_used, "thresholds": thresholds},
                 }
 
             # Extract stylometric features
@@ -253,8 +264,9 @@ class AIDetectionAnalyzer:
                 "flags": flags,
                 "sentence_analysis": sentence_analysis,
                 "char_ngram_similarity": round(char_ngram_similarity, 3) if char_ngram_similarity is not None else None,
+                "baseline_used": baseline_used,
                 "config": {
-                    "baseline": baseline,
+                    "baseline": baseline_used,
                     "baseline_info": baseline_data.get("corpus_info", {}),
                     "thresholds": thresholds,
                 },
@@ -264,12 +276,13 @@ class AIDetectionAnalyzer:
             logger.error(f"Error in stylometric analysis: {e}")
             return {
                 "error": f"Analysis failed: {str(e)}",
+                "baseline_used": baseline_used,
                 "features": {},
                 "z_scores": {},
                 "flags": {"high_ai_probability": False, "reasons": []},
                 "sentence_analysis": [],
                 "char_ngram_similarity": None,
-                "config": {"baseline": baseline, "thresholds": thresholds},
+                "config": {"baseline": baseline_used, "thresholds": thresholds},
             }
 
     def _chunk_text(self, text, tokenizer, max_length=512, overlap=50):

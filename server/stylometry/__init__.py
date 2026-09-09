@@ -6,7 +6,7 @@ features like sentence length, lexical diversity, and part-of-speech patterns.
 """
 
 from server.stylometry.analyzer import StylemetricAnalyzer
-from server.stylometry.baselines import BaselineManager
+from server.stylometry.baselines import BaselineManager, resolve_baseline_name
 from server.stylometry.corpus_baseline import (
     ALL_SIMPLE_FEATURES,
     DEFAULT_ROBUST_FEATURES,
@@ -24,6 +24,7 @@ from server.stylometry.statistical import (
 __all__ = [
     "StylemetricAnalyzer",
     "BaselineManager",
+    "resolve_baseline_name",
     "calculate_z_scores",
     "calculate_char_ngram_similarity",
     "flag_outliers",
