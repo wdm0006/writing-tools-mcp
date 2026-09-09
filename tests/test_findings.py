@@ -41,6 +41,9 @@ STYLOMETRY_BASE_KEYS = {
     "config",
     "flags",
     "char_ngram_similarity",
+    # W3 live-baseline contract: every response, error paths included, reports
+    # the baseline it was measured against.
+    "baseline_used",
 }
 
 # Indicators whose z-scores do not exist in a 9-statistic baseline like brown_corpus:
@@ -512,7 +515,7 @@ def stylometry_tool(ai_detection_analyzer, mock_managers):
 
 
 class TestStylometricToolSchema:
-    """stylometric_analysis: 6 base keys + findings on success, + error on failure."""
+    """stylometric_analysis: 7 base keys + findings on success, + error on failure."""
 
     def test_success_path_adds_findings_only(self, stylometry_tool):
         result = app.stylometric_analysis(SAMPLE_TEXT, "brown_corpus", "en")

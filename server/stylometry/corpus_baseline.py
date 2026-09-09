@@ -237,7 +237,9 @@ def build_baseline_from_texts(
             }
 
     function_word_freqs_out: Dict[str, Any] = {}
-    for word in function_words:
+    # Sorted iteration: `function_words` is a set, so its raw order varies per
+    # process and would make rebuilt baseline JSONs non-reproducible byte-for-byte.
+    for word in sorted(function_words):
         values = [
             doc["function_word_freqs"][word] for doc in per_doc_features if word in doc.get("function_word_freqs", {})
         ]
