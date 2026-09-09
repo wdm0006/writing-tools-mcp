@@ -136,7 +136,14 @@ class TestResultsUnchanged:
 
     @pytest.mark.parametrize("level", ["full", "section", "paragraph", "bogus"])
     def test_readability_score_matches_analyzer(self, level, mock_managers):
-        assert app.readability_score(self.TEXT, level) == ReadabilityAnalyzer().readability_score(self.TEXT, level)
+        tool_result = app.readability_score(self.TEXT, level)
+        analyzer_result = ReadabilityAnalyzer().readability_score(self.TEXT, level)
+        if "error" in analyzer_result:  # error paths keep the exact analyzer shape
+            assert tool_result == analyzer_result
+        else:  # success paths are the analyzer result plus the findings array
+            for key, value in analyzer_result.items():
+                assert tool_result[key] == value
+            assert set(tool_result) == set(analyzer_result) | {"findings"}
 
     @pytest.mark.parametrize("level", ["full", "section", "paragraph", "bogus"])
     def test_reading_time_matches_analyzer(self, level, mock_managers):
@@ -168,17 +175,26 @@ class TestNlpToolsStillLoadAndCleanUp:
             yield analyzers
 
     @pytest.mark.parametrize(
-        "tool, args, key, method, expected_call",
+        "tool, args, key, method, expected_call, return_value",
         [
-            (app.spellcheck, ("some text",), "basic_stats", "spellcheck", ("some text",)),
-            (app.keyword_frequency, ("some text",), "keyword", "keyword_frequency", ("some text", True)),
-            (app.passive_voice_detection, ("some text",), "style", "passive_voice_detection", ("some text",)),
+            (app.spellcheck, ("some text",), "basic_stats", "spellcheck", ("some text",), None),
+            (
+                app.keyword_frequency,
+                ("some text",),
+                "keyword",
+                "keyword_frequency",
+                ("some text", True),
+                {"cat": 2, "dog": 1},
+            ),
+            (app.passive_voice_detection, ("some text",), "style", "passive_voice_detection", ("some text",), None),
         ],
         ids=["spellcheck", "keyword_frequency", "passive_voice_detection"],
     )
     def test_nlp_tool_loads_then_unloads_spacy(
-        self, tool, args, key, method, expected_call, mock_managers, mock_analyzers
+        self, tool, args, key, method, expected_call, return_value, mock_managers, mock_analyzers
     ):
+        if return_value is not None:  # envelope builders need a real analyzer result
+            getattr(mock_analyzers[key], method).return_value = return_value
         tool(*args)
 
         mock_managers["spacy"].get_model.assert_called_once_with()

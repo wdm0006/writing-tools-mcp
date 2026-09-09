@@ -12,15 +12,15 @@ This server provides the following text analysis tools:
 *   **`character_count`**: Return the number of characters in the input text.
 *   **`word_count`**: Return the number of words in the input text.
 *   **`spellcheck`**: Return a list of misspelled words in the input text.
-*   **`readability_score`**: Return readability scores (Flesch, Kincaid, Fog) for the text, section, or paragraph level.
+*   **`readability_score`**: Return readability scores (Flesch, Kincaid, Fog) for the text, section, or paragraph level. Successful responses include a `findings` array.
 *   **`reading_time`**: Return the estimated reading time for the text, section, or paragraph level.
-*   **`keyword_density`**: Calculate the density of a given keyword in the text.
-*   **`keyword_frequency`**: Count how often each keyword appears in the text (optionally removing stopwords).
-*   **`top_keywords`**: Identify the most frequently used keywords in the text.
-*   **`keyword_context`**: Extract sentences or phrases where a specific keyword appears.
+*   **`keyword_density`**: Calculate the density of a given keyword in the text. Returns `{"keyword", "density", "findings"}`.
+*   **`keyword_frequency`**: Count how often each keyword appears in the text (optionally removing stopwords). Returns `{"frequencies", "findings"}`.
+*   **`top_keywords`**: Identify the most frequently used keywords in the text. Returns `{"keywords", "findings"}`.
+*   **`keyword_context`**: Extract sentences or phrases where a specific keyword appears. Returns `{"keyword", "sentences", "findings"}`.
 *   **`passive_voice_detection`**: Detect passive voice constructions in the text.
-*   **`perplexity_analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2.
-*   **`stylometric_analysis`**: Analyze stylometric features (sentence length, length-robust lexical diversity and vocabulary rarity, POS ratios and bigrams, six readability grade-level formulas, syntactic complexity, punctuation idiosyncrasies, hedge/booster rate, per-function-word/Burrows' Delta profile, character n-gram profile) for AI detection, against a built-in or custom baseline.
+*   **`perplexity_analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2. Successful responses include a `findings` array.
+*   **`stylometric_analysis`**: Analyze stylometric features (sentence length, length-robust lexical diversity and vocabulary rarity, POS ratios and bigrams, six readability grade-level formulas, syntactic complexity, punctuation idiosyncrasies, hedge/booster rate, per-function-word/Burrows' Delta profile, character n-gram profile) for AI detection, against a built-in or custom baseline. Successful responses include a `findings` array.
 
 ## Install
 
@@ -225,6 +225,15 @@ You can configure any MCP client (like Claude.ai, Windsurf, or Cursor) to connec
 *   "Compare the writing style of this text against human writing baselines." (Provide text, calls `stylometric_analysis`)
 *   "Is this text too uniform in sentence structure to be human-written?" (Provide text, calls both AI detection tools)
 
+## Revision Prompts
+
+Two MCP prompts support an analyze → revise → verify loop:
+
+*   **`guided_revision`**: Render an impact-ordered revision brief for a document. Pass the `findings` array from any analysis tool as the optional `findings` argument (JSON string); every finding's `rule`, `location`, `message`, and `fix_hint` is listed, highest-impact first. Omit it and the brief tells you which tools to run first.
+*   **`writing_checklist`**: A pre-flight drafting checklist (structure, sentence variety, hedging and boosters, readability, keywords, voice) to apply while writing.
+
+Seven analysis tools (`readability_score`, `perplexity_analysis`, `stylometric_analysis`, `keyword_density`, `keyword_frequency`, `top_keywords`, `keyword_context`) attach a `findings` array to successful responses — located, actionable observations with `rule`, `location`, `message`, and `fix_hint` fields, where fix hints coach the fix rather than restate the flaw. Stylometric findings are honestly scoped to the chosen baseline: indicators the baseline cannot measure produce no finding. Error responses are unchanged, and `passive_voice_detection` still returns a plain list of sentences.
+
 ## Tool Reference
 
 Below is a detailed reference for each tool provided by the server.
@@ -298,7 +307,7 @@ Below is a detailed reference for each tool provided by the server.
 *   **Parameters**:
     *   `text` (`str`): The text to analyze.
     *   `keyword` (`str`): The keyword or phrase to search for.
-*   **Returns**: `float` - The density percentage ( (keyword count / total words) * 100 ).
+*   **Returns**: `dict` - `{"keyword": str, "density": float, "findings": list}` — the density percentage ( (keyword count / total words) * 100 ) plus actionable findings.
 
 ---
 
@@ -308,7 +317,7 @@ Below is a detailed reference for each tool provided by the server.
 *   **Parameters**:
     *   `text` (`str`): The text to analyze.
     *   `remove_stopwords` (`bool`, optional, default=`True`): Whether to exclude common English stopwords (e.g., 'the', 'a', 'is').
-*   **Returns**: `dict` - A dictionary mapping each keyword (or lemma) to its frequency count.
+*   **Returns**: `dict` - `{"frequencies": {keyword: count, ...}, "findings": list}` — the frequency map (counts under `frequencies`) plus actionable findings.
 
 ---
 
@@ -319,7 +328,7 @@ Below is a detailed reference for each tool provided by the server.
     *   `text` (`str`): The text to analyze.
     *   `top_n` (`int`, optional, default=`10`): The number of top keywords to return.
     *   `remove_stopwords` (`bool`, optional, default=`True`): Whether to exclude common English stopwords.
-*   **Returns**: `list[tuple[str, int]]` - A list of tuples, where each tuple contains a keyword (or lemma) and its count, sorted by frequency in descending order.
+*   **Returns**: `dict` - `{"keywords": [[keyword, count], ...], "findings": list}` — keyword/count pairs sorted by frequency in descending order, plus actionable findings.
 
 ---
 
@@ -329,7 +338,7 @@ Below is a detailed reference for each tool provided by the server.
 *   **Parameters**:
     *   `text` (`str`): The text to search within.
     *   `keyword` (`str`): The keyword or phrase to find.
-*   **Returns**: `list[str]` - A list of sentences containing the keyword or phrase, matched on lemmas.
+*   **Returns**: `dict` - `{"keyword": str, "sentences": list[str], "findings": list}` — the matching sentences plus actionable findings.
 
 ---
 

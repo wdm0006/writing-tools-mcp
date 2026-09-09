@@ -14,6 +14,16 @@ from fastmcp import FastMCP
 
 # Analysis imports
 from server.analyzers import initialize_analyzers, initialize_model_independent_analyzers
+from server.analyzers.findings import (
+    from_keyword_context,
+    from_keyword_density,
+    from_keyword_frequency,
+    from_perplexity,
+    from_readability_result,
+    from_stylometry,
+    from_top_keywords,
+    order_by_impact,
+)
 
 # Configuration imports
 from server.config import load_config
@@ -21,6 +31,7 @@ from server.config.defaults import DEFAULT_CONFIG
 
 # Model imports
 from server.models import initialize_models
+from server.prompts import render_guided_revision, render_writing_checklist
 
 # Text processing imports
 from server.text_processing import initialize_preprocessor
@@ -209,8 +220,15 @@ def readability_score(text: str, level: str = "full") -> dict:
               - If `level` is "section": `{"full_text": {...}, "sections": {"section_heading": {...}, ...}}`
               - If `level` is "paragraph": `{"full_text": {...}, "paragraphs": [{"paragraph_number": int, "text": str, "scores": {...}}, ...]}`
               - If `level` is invalid: `{"error": str}`
+
+              On non-error paths the response also carries `findings`: a list of
+              actionable, located observations built from the scores (see
+              `server/analyzers/findings.py`).
     """
-    return get_model_independent_analyzers()["readability"].readability_score(text, level)
+    result = get_model_independent_analyzers()["readability"].readability_score(text, level)
+    if "error" not in result:
+        result["findings"] = order_by_impact(from_readability_result(result))
+    return result
 
 
 @mcp.tool()
@@ -238,7 +256,7 @@ def reading_time(text: str, level: str = "full") -> dict:
 
 @mcp.tool()
 @auto_cleanup("spacy")
-def keyword_density(text: str, keyword: str) -> float:
+def keyword_density(text: str, keyword: str) -> dict:
     """Calculates the density of a specific keyword within the text.
 
     Density is defined as (keyword count / total word count) * 100.
@@ -250,9 +268,14 @@ def keyword_density(text: str, keyword: str) -> float:
         keyword: The keyword to calculate the density for.
 
     Returns:
-        float: The density of the keyword as a percentage. Returns 0 if the text is empty.
+        dict: `{"keyword": str, "density": float, "findings": list}` — the density
+              percentage (0 if the text is empty) plus actionable findings
+              (e.g. keyword stuffing above 5%, or the keyword being absent).
     """
-    return get_analyzers()["keyword"].keyword_density(text, keyword)
+    density = get_analyzers()["keyword"].keyword_density(text, keyword)
+    result: dict = {"keyword": keyword, "density": density}
+    result["findings"] = order_by_impact(from_keyword_density(keyword, density)) if text.strip() else []
+    return result
 
 
 @mcp.tool()
@@ -267,15 +290,21 @@ def keyword_frequency(text: str, remove_stopwords: bool = True) -> dict:
                            Uses spaCy's preprocessing.
 
     Returns:
-        dict: A dictionary where keys are the words (or lemmas if lemmatization is enabled
-              in `preprocess_text`) and values are their corresponding frequency counts.
+        dict: `{"frequencies": {word: count, ...}, "findings": list}` — the word (or
+              lemma) frequency map, plus actionable findings (overused terms). The
+              counts live under `frequencies` so a word literally spelled
+              "findings" can never collide with the findings array itself.
     """
-    return get_analyzers()["keyword"].keyword_frequency(text, remove_stopwords)
+    frequencies = get_analyzers()["keyword"].keyword_frequency(text, remove_stopwords)
+    return {
+        "frequencies": frequencies,
+        "findings": order_by_impact(from_keyword_frequency(frequencies, stopwords_removed=remove_stopwords)),
+    }
 
 
 @mcp.tool()
 @auto_cleanup("spacy")
-def top_keywords(text: str, top_n: int = 10, remove_stopwords: bool = True) -> list:
+def top_keywords(text: str, top_n: int = 10, remove_stopwords: bool = True) -> dict:
     """
     Identifies the most frequently occurring keywords (words or lemmas) in the text.
 
@@ -285,15 +314,17 @@ def top_keywords(text: str, top_n: int = 10, remove_stopwords: bool = True) -> l
         remove_stopwords: If True (default), common English stopwords are removed before counting.
 
     Returns:
-        list[tuple[str, int]]: A list of tuples, where each tuple contains a keyword (str)
-                               and its frequency count (int), sorted in descending order of frequency.
+        dict: `{"keywords": [[keyword, count], ...], "findings": list}` — up to `top_n`
+              keyword/count pairs sorted by descending frequency, plus actionable
+              findings (e.g. a single keyword dominating the distribution).
     """
-    return get_analyzers()["keyword"].top_keywords(text, top_n, remove_stopwords)
+    keywords = get_analyzers()["keyword"].top_keywords(text, top_n, remove_stopwords)
+    return {"keywords": keywords, "findings": order_by_impact(from_top_keywords(keywords))}
 
 
 @mcp.tool()
 @auto_cleanup("spacy")
-def keyword_context(text: str, keyword: str) -> list:
+def keyword_context(text: str, keyword: str) -> dict:
     """Extracts sentences from the text that contain a specific keyword or its lemma.
 
     Uses spaCy for sentence boundary detection and lemmatization to match variations of the keyword.
@@ -304,9 +335,15 @@ def keyword_context(text: str, keyword: str) -> list:
         keyword: The keyword to find the context for.
 
     Returns:
-        list[str]: A list of sentences from the text that contain the specified keyword or its lemma.
+        dict: `{"keyword": str, "sentences": list[str], "findings": list}` — the matching
+              sentences, plus actionable findings (e.g. the keyword appearing nowhere).
     """
-    return get_analyzers()["keyword"].keyword_context(text, keyword)
+    sentences = get_analyzers()["keyword"].keyword_context(text, keyword)
+    return {
+        "keyword": keyword,
+        "sentences": sentences,
+        "findings": order_by_impact(from_keyword_context(sentences)),
+    }
 
 
 @mcp.tool()
@@ -343,9 +380,15 @@ def perplexity_analysis(text: str, language: str = "en") -> dict:
 
     Returns:
         dict: Analysis results including document perplexity, burstiness,
-              sentence-level scores, and AI detection flags
+              sentence-level scores, and AI detection flags. On success the
+              response also carries `findings`: actionable, located observations
+              (headline verdict plus the most predictable sentences) built by
+              `server/analyzers/findings.py`. Error responses are unchanged.
     """
-    return get_analyzers()["ai_detection"].perplexity_analysis(text, language)
+    result = get_analyzers()["ai_detection"].perplexity_analysis(text, language)
+    if "error" not in result:
+        result["findings"] = order_by_impact(from_perplexity(result))
+    return result
 
 
 @mcp.tool()
@@ -366,9 +409,47 @@ def stylometric_analysis(text: str, baseline: str | None = None, language: str =
         language: Language code (only "en" supported currently)
 
     Returns:
-        dict: Stylometric analysis with features, z-scores, and AI detection flags
+        dict: Stylometric analysis with features, z-scores, and AI detection flags.
+              On success the response also carries `findings`: actionable, located
+              observations (AI indicators, baseline outliers, the headline verdict)
+              built by `server/analyzers/findings.py` — honestly scoped to what the
+              chosen baseline can actually measure. Error responses are unchanged.
     """
-    return get_analyzers()["ai_detection"].stylometric_analysis(text, baseline, language)
+    result = get_analyzers()["ai_detection"].stylometric_analysis(text, baseline, language)
+    if "error" not in result:
+        result["findings"] = order_by_impact(from_stylometry(result))
+    return result
+
+
+@mcp.prompt()
+def guided_revision(document: str, findings: str | None = None) -> str:
+    """Build an impact-ordered revision brief for a document.
+
+    Args:
+        document: The text to revise.
+        findings: Optional JSON array — the `findings` value returned by an
+                  analysis tool (readability_score, stylometric_analysis,
+                  perplexity_analysis, keyword_density, keyword_frequency,
+                  top_keywords, keyword_context). Each finding's rule, location,
+                  message, and fix hint are rendered in impact order. When omitted,
+                  the brief tells you which tools to run first.
+
+    Returns:
+        str: The rendered revision brief.
+    """
+    return render_guided_revision(document, findings)
+
+
+@mcp.prompt()
+def writing_checklist() -> str:
+    """Render a pre-flight drafting checklist (structure, sentence variety,
+    hedging, readability, keywords, voice) to apply while writing, before any
+    analysis exists.
+
+    Returns:
+        str: The rendered checklist.
+    """
+    return render_writing_checklist()
 
 
 def main():
