@@ -13,6 +13,7 @@ from server.stylometry.corpus_baseline import (
     DEFAULT_ROBUST_POS_TAGS,
     build_baseline_from_texts,
 )
+from server.stylometry.delta import compute_statistic_deltas, compute_verdicts
 from server.stylometry.statistical import (
     calculate_char_ngram_similarity,
     calculate_sentence_z_scores,
@@ -30,6 +31,8 @@ __all__ = [
     "flag_outliers",
     "generate_flags",
     "calculate_sentence_z_scores",
+    "compute_statistic_deltas",
+    "compute_verdicts",
     "build_baseline_from_texts",
     "DEFAULT_ROBUST_FEATURES",
     "DEFAULT_ROBUST_POS_TAGS",

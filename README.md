@@ -21,6 +21,7 @@ This server provides the following text analysis tools:
 *   **`passive_voice_detection`**: Detect passive voice constructions in the text.
 *   **`perplexity_analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2. Successful responses include a `findings` array.
 *   **`stylometric_analysis`**: Analyze stylometric features (sentence length, length-robust lexical diversity and vocabulary rarity, POS ratios and bigrams, six readability grade-level formulas, syntactic complexity, punctuation idiosyncrasies, hedge/booster rate, per-function-word/Burrows' Delta profile, character n-gram profile) for AI detection, against a built-in or custom baseline. Successful responses include a `findings` array.
+*   **`stylometric_delta`**: Profile a draft and its revision against the same baseline and report what the revision moved: per-statistic z-score deltas, an `improved`/`regressed`/`unchanged` verdict per dimension, and a `findings` array for the revised text.
 
 ## Install
 
@@ -227,10 +228,11 @@ You can configure any MCP client (like Claude.ai, Windsurf, or Cursor) to connec
 
 ## Revision Prompts
 
-Two MCP prompts support an analyze → revise → verify loop:
+Three MCP prompts support an analyze → revise → verify loop:
 
 *   **`guided_revision`**: Render an impact-ordered revision brief for a document. Pass the `findings` array from any analysis tool as the optional `findings` argument (JSON string); every finding's `rule`, `location`, `message`, and `fix_hint` is listed, highest-impact first. Omit it and the brief tells you which tools to run first.
 *   **`writing_checklist`**: A pre-flight drafting checklist (structure, sentence variety, hedging and boosters, readability, keywords, voice) to apply while writing.
+*   **`verify_revision`**: Render a `stylometric_delta` response as a revision verdict. Pass the tool's full response as the `delta` argument (JSON string); the verdict groups every statistic into `improved`/`regressed`/`unchanged` with the z-score movement behind each, lists the revised text's findings, and closes with a verification protocol (fix the regressions first, re-run, stop when they clear or plateau). Malformed input degrades into a note instead of an error.
 
 Seven analysis tools (`readability_score`, `perplexity_analysis`, `stylometric_analysis`, `keyword_density`, `keyword_frequency`, `top_keywords`, `keyword_context`) attach a `findings` array to successful responses — located, actionable observations with `rule`, `location`, `message`, and `fix_hint` fields, where fix hints coach the fix rather than restate the flaw. Stylometric findings are honestly scoped to the chosen baseline: indicators the baseline cannot measure produce no finding. Error responses are unchanged, and `passive_voice_detection` still returns a plain list of sentences.
 
@@ -381,6 +383,24 @@ Below is a detailed reference for each tool provided by the server.
     *   `char_ngram_similarity` (`float | null`): Cosine similarity between this text's character n-gram profile and the baseline's (see [Custom Baselines](#custom-baselines)); `null` when the baseline has no character n-gram profile (e.g. `brown_corpus`)
     *   `baseline_used` (`str`): Name of the baseline the analysis was measured against - the explicit `baseline` argument, the configured `stylometry.default_baseline`, or `"brown_corpus"`
     *   `config` (`dict`): Baseline information and analysis thresholds
+
+---
+
+**`stylometric_delta`**
+
+*   **Description**: Verify a revision: profile a draft (`text_a`) and its revision (`text_b`) against one baseline and report what the revision actually moved. Both texts run through the same `stylometric_analysis` pipeline against the same baseline, and every statistic the baseline can measure in **both** texts is reported as a movement. A statistic `improved` when the revision moved its z-score closer to zero (into the baseline's range), `regressed` when the movement pushed it further out, and `unchanged` otherwise - the sign never matters, only the distance.
+*   **Parameters**:
+    *   `text_a` (`str`): The draft text (the "before").
+    *   `text_b` (`str`): The revised text (the "after").
+    *   `baseline` (`str`, optional): Baseline corpus name both texts are measured against. When omitted, the configured `stylometry.default_baseline` (or `"brown_corpus"`) is used; the response's `baseline_used` field names the baseline actually used. See [Custom Baselines](#custom-baselines) to build your own.
+*   **Returns**: `dict` - Delta analysis including:
+    *   `baseline_used` (`str`): The baseline both texts were measured against.
+    *   `deltas` (`list`): One `{statistic, z_a, z_b, delta, direction}` entry per shared statistic (sorted by name), where `delta = z_b - z_a` and `direction` is `"increased"`, `"decreased"`, or `"none"` - the raw movement, independent of whether it helped.
+    *   `verdict` (`list`): One `{statistic, verdict}` entry per delta, running parallel to `deltas`, with verdict `"improved"`, `"regressed"`, or `"unchanged"`.
+    *   `text_b_analysis` (`dict`): The revised text's full `stylometric_analysis` response, so the verdict carries its own evidence.
+    *   `findings` (`list`): Actionable, located observations about the **revised** text (see [Revision Prompts](#revision-prompts)); pass the whole response to the `verify_revision` prompt to render it as a revision verdict.
+
+    Error responses (an empty `text_a` or `text_b`, or a missing baseline - the error names which) keep the family's `{"error": str}` shape with the delta keys present but empty (`deltas`/`verdict` as `[]`, `text_b_analysis` as `null`), so callers can destructure without shape-switching.
 
 ---
 
