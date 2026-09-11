@@ -190,10 +190,14 @@ class TestStylemetricAnalyzer:
         assert abs(result["VERB"] - 0.333) < 0.01  # 2/6
 
     def test_punctuation_density_calculation(self, analyzer):
-        """Test punctuation density calculation."""
-        text = "Hello, world! How are you?"  # 3 punct marks, 26 total chars
+        """Test punctuation density calculation.
+
+        Unit is punctuation marks per word (matches the baseline constant
+        0.14 in server/data/baselines/brown_corpus.json).
+        """
+        text = "Hello, world! How are you?"  # 3 punct marks, 5 words
         result = analyzer._punctuation_density(text)
-        assert abs(result - 0.115) < 0.01  # 3/26 ≈ 0.115
+        assert abs(result - 0.6) < 0.01  # 3/5 = 0.6
 
     def test_comma_ratio_calculation(self, analyzer):
         """Test comma ratio calculation."""

@@ -248,6 +248,9 @@ class BaselineManager:
                     "PART": {"mean": 0.02, "std": 0.01},  # Particles
                 },
                 # Punctuation features
+                # punct_density is punctuation marks per WORD (matches
+                # server/data/baselines/brown_corpus.json's 0.14 +/- 0.03 and
+                # StylemetricAnalyzer._punctuation_density's docstring).
                 "punct_density": {"mean": 0.14, "std": 0.03},
                 "comma_ratio": {"mean": 0.42, "std": 0.08},
                 # Additional features
