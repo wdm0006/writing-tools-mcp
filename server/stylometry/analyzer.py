@@ -548,12 +548,29 @@ class StylemetricAnalyzer:
         return {bigram: count / total for bigram, count in bigram_counts.items()}
 
     def _punctuation_density(self, text: str) -> float:
-        """Calculate punctuation density (punctuation marks / total characters)."""
+        """Calculate punctuation density as punctuation marks per word.
+
+        Unit: count(punctuation marks in text) / count(words in text).
+        A "word" is a non-punctuation, non-whitespace token from a spaCy parse.
+
+        The previous implementation divided by ``len(text)`` (per-character),
+        which was dimensionally inconsistent with the static baseline constant
+        of 0.14. Real English prose has ~0.165 punctuation marks per *word*
+        (and ~0.027 per *character*); the per-character rate against a 0.14
+        baseline z-scored every human document as a >3-sigma outlier and
+        carried no information. The per-word rate against the same baseline
+        z-scores real prose at +0.83, which is what a baseline should look
+        like. See PR/issue for the measurement that surfaced the mismatch.
+        """
         if not text:
             return 0.0
 
-        punct_count = sum(1 for char in text if char in ".,;:!?()[]{}\"'-")
-        return punct_count / len(text)
+        doc = self.nlp(text)
+        punct_count = sum(1 for tok in doc if tok.is_punct)
+        word_count = sum(1 for tok in doc if not tok.is_punct and not tok.is_space)
+        if word_count == 0:
+            return 0.0
+        return punct_count / word_count
 
     def _comma_ratio(self, text: str) -> float:
         """Calculate comma usage ratio (commas / total punctuation)."""
