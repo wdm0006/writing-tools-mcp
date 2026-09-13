@@ -15,10 +15,19 @@
 # mode=dry-run (default) builds the sdist/wheel, runs `twine check` and an
 # installed-wheel smoke test, and uploads the distributions as a workflow
 # artifact. Nothing is published.
+#
+# The same build/smoke path also runs on pull_request events so distribution
+# changes are validated before merge; the publish job stays skipped there
+# because `mode` can only be set to `publish` by an explicit maintainer
+# dispatch (workflow_dispatch input), never by a push or PR event.
 
 name: Publish
 
 on:
+  pull_request:
+    branches:
+      - main
+      - develop
   workflow_dispatch:
     inputs:
       mode:
