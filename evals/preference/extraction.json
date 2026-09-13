@@ -1,0 +1,297 @@
+{
+  "pairs": [
+    {
+      "edited": {
+        "anchor": "beheld the accomplishment of my toils",
+        "anchor_offset": 100252,
+        "sentences": 12,
+        "source": "frankenstein_1831",
+        "words": 310
+      },
+      "pair_id": "frankenstein-creation-night",
+      "unedited": {
+        "anchor": "beheld the accomplishment of my toils",
+        "anchor_offset": 83946,
+        "sentences": 12,
+        "source": "frankenstein_1818",
+        "words": 280
+      }
+    },
+    {
+      "edited": {
+        "anchor": "worked hard for nearly two years",
+        "anchor_offset": 101457,
+        "sentences": 12,
+        "source": "frankenstein_1831",
+        "words": 325
+      },
+      "pair_id": "frankenstein-two-years-toil",
+      "unedited": {
+        "anchor": "worked hard for nearly two years",
+        "anchor_offset": 85150,
+        "sentences": 12,
+        "source": "frankenstein_1818",
+        "words": 324
+      }
+    },
+    {
+      "edited": {
+        "anchor": "my candle was nearly burnt out",
+        "anchor_offset": 100552,
+        "sentences": 12,
+        "source": "frankenstein_1831",
+        "words": 306
+      },
+      "pair_id": "frankenstein-candle-night",
+      "unedited": {
+        "anchor": "my candle was nearly burnt out",
+        "anchor_offset": 84246,
+        "sentences": 12,
+        "source": "frankenstein_1818",
+        "words": 290
+      }
+    },
+    {
+      "edited": {
+        "anchor": "Every one loved Elizabeth",
+        "anchor_offset": 56849,
+        "sentences": 12,
+        "source": "frankenstein_1831",
+        "words": 226
+      },
+      "pair_id": "frankenstein-elizabeth",
+      "unedited": {
+        "anchor": "Everyone loved Elizabeth",
+        "anchor_offset": 40743,
+        "sentences": 12,
+        "source": "frankenstein_1818",
+        "words": 258
+      }
+    },
+    {
+      "edited": {
+        "anchor": "the eye with all its inimitable contrivances",
+        "anchor_offset": 415904,
+        "sentences": 12,
+        "source": "origin_1872",
+        "words": 572
+      },
+      "pair_id": "origin-eye",
+      "unedited": {
+        "anchor": "the eye, with all its inimitable contrivances",
+        "anchor_offset": 349408,
+        "sentences": 12,
+        "source": "origin_1859",
+        "words": 740
+      }
+    },
+    {
+      "edited": {
+        "anchor": "Akber Khan",
+        "anchor_offset": 87043,
+        "sentences": 12,
+        "source": "origin_1872",
+        "words": 389
+      },
+      "pair_id": "origin-pigeon-court",
+      "unedited": {
+        "anchor": "Akber Khan",
+        "anchor_offset": 59057,
+        "sentences": 12,
+        "source": "origin_1859",
+        "words": 379
+      }
+    },
+    {
+      "edited": {
+        "anchor": "It is interesting to contemplate",
+        "anchor_offset": 1182439,
+        "sentences": 12,
+        "source": "origin_1872",
+        "words": 429
+      },
+      "pair_id": "origin-entangled-bank",
+      "unedited": {
+        "anchor": "It is interesting to contemplate",
+        "anchor_offset": 900957,
+        "sentences": 12,
+        "source": "origin_1859",
+        "words": 308
+      }
+    },
+    {
+      "edited": {
+        "anchor": "beginning to get very tired",
+        "anchor_offset": 553,
+        "sentences": 12,
+        "source": "alice_wonderland_1865",
+        "words": 478
+      },
+      "pair_id": "alice-opening",
+      "unedited": {
+        "anchor": "beginning to get very tired",
+        "anchor_offset": 559,
+        "sentences": 12,
+        "source": "alice_under_ground_1864",
+        "words": 485
+      }
+    },
+    {
+      "edited": {
+        "anchor": "pool of tears",
+        "anchor_offset": 18477,
+        "sentences": 12,
+        "source": "alice_wonderland_1865",
+        "words": 335
+      },
+      "pair_id": "alice-pool-of-tears",
+      "unedited": {
+        "anchor": "pool of tears",
+        "anchor_offset": 17115,
+        "sentences": 12,
+        "source": "alice_under_ground_1864",
+        "words": 262
+      }
+    },
+    {
+      "edited": {
+        "anchor": "a large rabbit-hole",
+        "anchor_offset": 1839,
+        "sentences": 12,
+        "source": "alice_wonderland_1865",
+        "words": 382
+      },
+      "pair_id": "alice-rabbit-hole",
+      "unedited": {
+        "anchor": "a large rabbit-hole",
+        "anchor_offset": 1801,
+        "sentences": 12,
+        "source": "alice_under_ground_1864",
+        "words": 389
+      }
+    },
+    {
+      "edited": {
+        "anchor": "studio was filled",
+        "anchor_offset": 2403,
+        "sentences": 12,
+        "source": "dorian_1891",
+        "words": 422
+      },
+      "pair_id": "dorian-studio",
+      "unedited": {
+        "anchor": "studio was filled",
+        "anchor_offset": 171,
+        "sentences": 12,
+        "source": "dorian_1890",
+        "words": 408
+      }
+    },
+    {
+      "edited": {
+        "anchor": "only way to get rid of a temptation",
+        "anchor_offset": 36075,
+        "sentences": 12,
+        "source": "dorian_1891",
+        "words": 187
+      },
+      "pair_id": "dorian-temptation",
+      "unedited": {
+        "anchor": "only way to get rid of a temptation",
+        "anchor_offset": 33718,
+        "sentences": 12,
+        "source": "dorian_1890",
+        "words": 244
+      }
+    },
+    {
+      "edited": {
+        "anchor": "young Adonis",
+        "anchor_offset": 6108,
+        "sentences": 12,
+        "source": "dorian_1891",
+        "words": 195
+      },
+      "pair_id": "dorian-adonis",
+      "unedited": {
+        "anchor": "young Adonis",
+        "anchor_offset": 3645,
+        "sentences": 12,
+        "source": "dorian_1890",
+        "words": 189
+      }
+    }
+  ],
+  "parameters": {
+    "min_sentences": 8,
+    "note": "Both sides of a pair are cut to the same sentence count (the shorter side's).",
+    "sentence_splitter": "zero-width boundary after [.!?] where a quote/space/capital starts the next sentence; abbreviation-guarded (Mr./Mrs./Dr./St./No.)",
+    "sentences_per_excerpt": 12
+  },
+  "sources": {
+    "alice_under_ground_1864": {
+      "label": "1864 manuscript fair copy ('Under Ground')",
+      "license": "Public domain (written 1862-1864). Project Gutenberg transcription of the 1886 facsimile of a public-domain manuscript.",
+      "sha256": "c94381b6dca9e6e4fb80f4e0940db641e5daf57b85c70785ce027fecb8a063b4",
+      "url": "https://www.gutenberg.org/cache/epub/19002/pg19002.txt",
+      "work": "Alice's Adventures Under Ground",
+      "year": 1864
+    },
+    "alice_wonderland_1865": {
+      "label": "1865 published edition (Macmillan)",
+      "license": "Public domain (published 1865). Project Gutenberg transcription of a public-domain text.",
+      "sha256": "01b38ea4c710a84bc18d0bd41271a5a1a92b94e97b2812f4dece97d4a694725e",
+      "url": "https://www.gutenberg.org/cache/epub/11/pg11.txt",
+      "work": "Alice's Adventures in Wonderland",
+      "year": 1865
+    },
+    "dorian_1890": {
+      "label": "July 1890 Lippincott's Magazine text (13-chapter version)",
+      "license": "Public domain (published 1890; author died 1900). Wikisource transcription of Lippincott's Monthly Magazine, Vol. 46.",
+      "sha256": "a9ca2d7b39075a796b581a293884c46903e68373a6baf1f00e1478c3527a767a",
+      "url": "https://en.wikisource.org/wiki/Lippincott%27s%20Monthly%20Magazine/Volume%2046/July%201890/The%20Picture%20of%20Dorian%20Gray",
+      "work": "The Picture of Dorian Gray",
+      "year": 1890
+    },
+    "dorian_1891": {
+      "label": "April 1891 revised book edition (Ward, Lock & Co., 20 chapters, new preface)",
+      "license": "Public domain (published 1891). Project Gutenberg transcription of a public-domain text.",
+      "sha256": "38f36b510417177aa87a6a24c968e3ec63a447b7df36a9c1a7c5a3f2d9e51547",
+      "url": "https://www.gutenberg.org/cache/epub/174/pg174.txt",
+      "work": "The Picture of Dorian Gray",
+      "year": 1891
+    },
+    "frankenstein_1818": {
+      "label": "1818 first edition (anonymous)",
+      "license": "Public domain (published 1818). Project Gutenberg transcription of a public-domain text.",
+      "sha256": "7810cd483cffcf2cc8a1d8f0d5807931e69d4f48cd14149b8c76f88af82fead3",
+      "url": "https://www.gutenberg.org/cache/epub/84/pg84.txt",
+      "work": "Frankenstein; Or, The Modern Prometheus",
+      "year": 1818
+    },
+    "frankenstein_1831": {
+      "label": "1831 revised edition (Colburn & Bentley, new introduction by the author)",
+      "license": "Public domain (published 1831). Project Gutenberg transcription of a photo-reprint of the 1831 edition.",
+      "sha256": "34a453edf60de4b66d9b918aeaf48313ddd712a89cc78555e3fc240681c03733",
+      "url": "https://www.gutenberg.org/cache/epub/42324/pg42324.txt",
+      "work": "Frankenstein; Or, The Modern Prometheus",
+      "year": 1831
+    },
+    "origin_1859": {
+      "label": "1859 first edition (John Murray)",
+      "license": "Public domain (published 1859). Project Gutenberg transcription of a public-domain text.",
+      "sha256": "ededa9c0bf8761efed092c303b46c1c92de956838cba6249a33bedfd6d7363b4",
+      "url": "https://www.gutenberg.org/cache/epub/1228/pg1228.txt",
+      "work": "On the Origin of Species by Means of Natural Selection",
+      "year": 1859
+    },
+    "origin_1872": {
+      "label": "1872 sixth edition, 'with all Additions and Corrections' (John Murray)",
+      "license": "Public domain (published 1872). Project Gutenberg transcription of a public-domain text.",
+      "sha256": "27c02feed0b90e0163811a35a7565d03611dc1d3f86703d6bec4ae73d2d612b8",
+      "url": "https://www.gutenberg.org/cache/epub/2009/pg2009.txt",
+      "work": "On the Origin of Species by Means of Natural Selection",
+      "year": 1872
+    }
+  }
+}

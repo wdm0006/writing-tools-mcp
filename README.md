@@ -312,6 +312,17 @@ Three MCP prompts support an analyze → revise → verify loop:
 
 Seven analysis tools (`readability_score`, `perplexity_analysis`, `stylometric_analysis`, `keyword_density`, `keyword_frequency`, `top_keywords`, `keyword_context`) attach a `findings` array to successful responses — located, actionable observations with `rule`, `location`, `message`, and `fix_hint` fields, where fix hints coach the fix rather than restate the flaw. Stylometric findings are honestly scoped to the chosen baseline: indicators the baseline cannot measure produce no finding. Error responses are unchanged, and `passive_voice_detection` still returns a plain list of sentences.
 
+## Preference-Scoring Evaluation
+
+Whether "revisions move prose toward the baseline" is strong enough to power a writing-quality
+score was measured directly, not assumed: [`docs/preference-foundation.md`](docs/preference-foundation.md)
+scores 13 public-domain edit pairs (1818→1831 Frankenstein, Origin of Species editions, the Alice
+manuscript fair copy, Dorian Gray 1890→1891) with the `stylometric_delta` machinery. The delta
+direction agreed with the edited variant at coin-flip rates (pair level 41.7%, 95% CI [15%, 72%];
+verdict level 47.6%, 95% CI [41%, 55%]), so the go/no-go call is **no-go** on a production
+preference score — the evaluation is deterministic and reproducible, and the report names the
+evidence that would reverse the call.
+
 ## Reference Writing Loop
 
 `examples/writing_loop.py` is a runnable reference agent that wires the loop end-to-end against the live stdio server: a weak draft goes to `stylometric_analysis`, its findings render into a `guided_revision` brief, a revision is produced, and `stylometric_delta` verifies the revision actually moved the statistics toward the baseline — with `verify_revision` rendering the verdict prompt. It exits `0` when verification is clear, `1` when the revision regressed statistics the loop should have caught, and `2` when the loop itself failed (server unreachable, tools missing, error envelopes).
