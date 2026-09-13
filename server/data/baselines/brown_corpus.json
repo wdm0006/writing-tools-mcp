@@ -90,7 +90,8 @@
     "punct_density": {
       "mean": 0.14,
       "std": 0.03,
-      "description": "Punctuation density (punctuation/total chars)"
+      "unit": "punctuation marks per word",
+      "description": "Punctuation density (punctuation / words)"
     },
     "comma_ratio": {
       "mean": 0.42,

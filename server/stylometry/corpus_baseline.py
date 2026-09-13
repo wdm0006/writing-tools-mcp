@@ -27,8 +27,8 @@ whether they vary with document length in this tool's corpora, so treat their
 absence from ``DEFAULT_ROBUST_FEATURES`` as "unverified," not "known bad" - they're
 available in ``ALL_SIMPLE_FEATURES`` for anyone who wants to check.
 
-``mtld_lemma``, ``mean_word_frequency``, ``word_len_std``, ``lexical_density``, the
-punctuation-idiosyncrasy ratios, and ``hedge_rate``/``booster_rate`` are all
+``mtld_lemma``, ``mean_word_frequency``, ``word_len_std``, ``lexical_density``, per-word
+punctuation density and the punctuation-idiosyncrasy ratios, and ``hedge_rate``/``booster_rate`` are all
 per-document averages or ratios, the same shape as features already verified robust
 above, so they're included in the default set on that basis (not independently
 re-verified against this tool's specific corpora the way ttr/hapax were).
@@ -58,6 +58,10 @@ DEFAULT_ROBUST_FEATURES = [
     "mean_word_frequency",
     "word_len_std",
     "lexical_density",
+    # punct_density is punctuation marks per WORD (see
+    # StylemetricAnalyzer._punctuation_density): a ratio of two counts, so like
+    # the idiosyncrasy ratios below it is length-robust.
+    "punct_density",
     "semicolon_ratio",
     "em_dash_ratio",
     "ellipsis_ratio",
