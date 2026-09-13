@@ -1,5 +1,5 @@
 Committed transcript of examples/writing_loop.py against the live stdio server
-(uv run writing-tools-mcp, 14 tools, brown_corpus baseline). Generated on the
+(uv run writing-tools-mcp, 15 tools, brown_corpus baseline). Generated on the
 feat/writing-loop-example branch, 2026-09-13. Server logs (stderr) omitted for brevity.
 
 # Happy path: verification clear, exit 0
@@ -7,12 +7,12 @@ feat/writing-loop-example branch, 2026-09-13. Server logs (stderr) omitted for b
 $ uv run python examples/writing_loop.py
 $ echo $?   # 0
 
-WRITING LOOP - analyze -> revise -> verify (server: uv run writing-tools-mcp, 14 tools)
+WRITING LOOP - analyze -> revise -> verify (server: uv run writing-tools-mcp, 15 tools)
 
 DRAFT (85 words):
 The quarterly report for the quarter was prepared by the analytics team. Several data gaps were identified during the course of the review of the process. It was decided by the leadership that the rollout would be postponed for the duration of the quarter. Concerns about the migration timeline were raised by the engineering staff of the organization. A plan for additional testing was proposed by the subcommittee. The findings were documented in a shared repository. Follow-up actions are being tracked by the program manager.
 
----- STAGE 1 - ANALYZE: stylometric_analysis (0.5s) ----
+---- STAGE 1 - ANALYZE: stylometric_analysis (0.6s) ----
   baseline_used: brown_corpus
   findings (4):
   1. [pos_anomalies @ document] part-of-speech patterns deviate from the baseline (pos_det +4.97, pos_adp +3.30, pos_pron -2.92) -> rework sentences built on the same clause pattern — vary how phrases attach to the verb
@@ -40,7 +40,7 @@ The quarterly report for the quarter was prepared by the analytics team. Several
 1. Fix each finding in order, keeping the author's meaning.
 2. Re-run the analysis tools on the revised text and compare against the numbers in the findings.
 3. Stop when the findings clear or plateau — do not polish past the evidence.
----- STAGE 3 - VERIFY: revised draft vs draft (0.4s) ----
+---- STAGE 3 - VERIFY: revised draft vs draft (0.5s) ----
   REVISED (74 words):
 The analytics team wrote the quarterly report for the quarter, and they found several data gaps in it while reviewing the process. They raised concerns about the timeline for the migration, so leadership pushed the rollout back for the quarter. The subcommittee proposed more testing for the gaps, and they wrote them down for the team for the quarter. The program manager tracks the follow-up actions. Everyone expects a decision about them next month.
 
@@ -106,12 +106,12 @@ RESULT: verification clear - 14 statistic(s) improved, none regressed against br
 $ uv run python examples/writing_loop.py --demo-failure
 $ echo $?   # 1
 
-WRITING LOOP - analyze -> revise -> verify (server: uv run writing-tools-mcp, 14 tools)
+WRITING LOOP - analyze -> revise -> verify (server: uv run writing-tools-mcp, 15 tools)
 
 DRAFT (85 words):
 The quarterly report for the quarter was prepared by the analytics team. Several data gaps were identified during the course of the review of the process. It was decided by the leadership that the rollout would be postponed for the duration of the quarter. Concerns about the migration timeline were raised by the engineering staff of the organization. A plan for additional testing was proposed by the subcommittee. The findings were documented in a shared repository. Follow-up actions are being tracked by the program manager.
 
----- STAGE 1 - ANALYZE: stylometric_analysis (0.5s) ----
+---- STAGE 1 - ANALYZE: stylometric_analysis (0.6s) ----
   baseline_used: brown_corpus
   findings (4):
   1. [pos_anomalies @ document] part-of-speech patterns deviate from the baseline (pos_det +4.97, pos_adp +3.30, pos_pron -2.92) -> rework sentences built on the same clause pattern — vary how phrases attach to the verb
@@ -139,7 +139,7 @@ The quarterly report for the quarter was prepared by the analytics team. Several
 1. Fix each finding in order, keeping the author's meaning.
 2. Re-run the analysis tools on the revised text and compare against the numbers in the findings.
 3. Stop when the findings clear or plateau — do not polish past the evidence.
----- STAGE 3 - VERIFY: revised draft vs draft (0.4s) ----
+---- STAGE 3 - VERIFY: revised draft vs draft (0.5s) ----
   REVISED (88 words):
 It was determined by the analytics team of the organization that the preparation of the quarterly report for the quarter was completed by the team. The identification of the data gaps was carried out during the course of the review of the process by the staff. The postponement of the rollout for the duration of the quarter was decided by the leadership group of the organization. The raising of concerns about the timeline of the migration was done by the engineering staff of the organization for the quarter.
 
