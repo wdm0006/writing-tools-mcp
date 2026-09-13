@@ -9,6 +9,7 @@ wheel work.
 import functools
 import logging
 import sys
+import time
 
 from fastmcp import FastMCP
 
@@ -82,6 +83,11 @@ gpt2_manager = model_managers["gpt2"]
 _analyzers = None
 _model_independent_analyzers = None
 
+# Keep-warm state, consumed by ``auto_cleanup`` (see ``_evict_or_keep_warm``). The
+# default TTL of 0 keeps the historical behavior: models unload after every tool call.
+_keep_warm_seconds: float = float(config["model"]["keep_warm_seconds"])
+_last_model_use: float | None = None
+
 
 def get_model_independent_analyzers():
     """Lazily initialize and return the analyzers that need no NLP model.
@@ -112,19 +118,63 @@ def get_analyzers():
 
 
 def cleanup_models(*model_names):
-    """Release specified model memory immediately after use."""
-    global _analyzers
+    """Release specified model memory immediately, regardless of any keep-warm TTL."""
+    global _analyzers, _last_model_use
     if "spacy" in model_names:
         spacy_manager.unload_model()
     if "gpt2" in model_names:
         gpt2_manager.unload_model()
     # Clear analyzers to force re-initialization on next use
     _analyzers = None
+    # Nothing is resident anymore, so the keep-warm window no longer applies.
+    _last_model_use = None
     logger.info("Released models: %s", ", ".join(model_names))
+
+
+def _now() -> float:
+    """Monotonic clock for keep-warm accounting, isolated so tests can mock time."""
+    return time.monotonic()
+
+
+def _keep_warm_expired(now: float, last_use: float | None, ttl: float) -> bool:
+    """Decide whether the keep-warm window has lapsed at ``now``.
+
+    A TTL of 0 (the default) is always expired, so models evict after every call
+    exactly as they did before keep-warm existed. With no recorded use the window
+    is just starting, not lapsed. A call landing exactly on the TTL is expired.
+    """
+    if ttl <= 0:
+        return True
+    if last_use is None:
+        return False
+    return now - last_use >= ttl
+
+
+def _evict_or_keep_warm(model_names: tuple[str, ...], now: float) -> None:
+    """End-of-call model release: evict the named models or keep them warm.
+
+    Called from ``auto_cleanup``'s ``finally``. Inside an active keep-warm window
+    the named managers keep their weights and the next call skips the load; the
+    first call to finish after the window lapses evicts through the usual
+    ``cleanup_models`` path.
+    """
+    global _last_model_use
+    if _keep_warm_expired(now, _last_model_use, _keep_warm_seconds):
+        # cleanup_models also resets the window: nothing is resident to keep warm.
+        cleanup_models(*model_names)
+        return
+    remaining = _keep_warm_seconds if _last_model_use is None else _keep_warm_seconds - (now - _last_model_use)
+    _last_model_use = now
+    logger.debug("Keeping %s resident; keep-warm window has %.1fs left", ", ".join(model_names), remaining)
 
 
 def auto_cleanup(*model_names):
     """Decorator to automatically cleanup specified models after tool execution.
+
+    End-of-call cleanup honors the ``model.keep_warm_seconds`` TTL: with the default
+    0 the named models unload after every call; a positive TTL keeps them resident
+    for calls that land inside the window and lets the next call after expiry run
+    the eviction. Explicit ``cleanup_models`` always unloads immediately.
 
     Args:
         model_names: Names of models to unload ("spacy", "gpt2").
@@ -136,7 +186,7 @@ def auto_cleanup(*model_names):
             try:
                 return func(*args, **kwargs)
             finally:
-                cleanup_models(*model_names)
+                _evict_or_keep_warm(model_names, _now())
 
         return wrapper
 

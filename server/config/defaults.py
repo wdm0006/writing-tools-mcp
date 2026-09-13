@@ -15,5 +15,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "default_baseline": "brown_corpus",
         "thresholds": {"warning_z": 2.0, "error_z": 3.0, "ai_confidence_threshold": 0.7},
     },
+    "model": {"keep_warm_seconds": 0},
     "logging": {"level": "INFO", "format": "%(asctime)s - %(levelname)s - %(message)s"},
 }

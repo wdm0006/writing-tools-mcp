@@ -239,6 +239,16 @@ class TestWrongTypes:
         assert config["perplexity"]["model_name"] == "gpt2"
         assert "'perplexity.model_name' must be a string, got int" in caplog.text
 
+    def test_non_numeric_keep_warm_seconds(self, tmp_path, caplog):
+        """A non-numeric keep_warm_seconds warns and falls back to the default."""
+        path = _write_config(tmp_path, 'model:\n  keep_warm_seconds: "soon"\n')
+
+        with caplog.at_level(logging.WARNING):
+            config = load_config(path)
+
+        assert config["model"]["keep_warm_seconds"] == 0
+        assert "'model.keep_warm_seconds' must be a number, got str" in caplog.text
+
     def test_legacy_features_key_warns_and_is_dropped(self, tmp_path, caplog):
         """A pre-removal config carrying `stylometry.features` warns, drops the key, and still loads.
 
@@ -306,6 +316,16 @@ class TestValidOverrides:
         assert caplog.text == ""
         assert config["stylometry"]["thresholds"]["warning_z"] == 3
 
+    def test_keep_warm_seconds_override(self, tmp_path, caplog):
+        """A positive keep-warm TTL validates cleanly and lands in the config."""
+        path = _write_config(tmp_path, "model:\n  keep_warm_seconds: 300\n")
+
+        with caplog.at_level(logging.WARNING):
+            config = load_config(path)
+
+        assert caplog.text == ""
+        assert config["model"]["keep_warm_seconds"] == 300
+
 
 class TestSchemaCoverage:
     """The schema covers everything the server actually reads."""
@@ -324,6 +344,7 @@ class TestSchemaCoverage:
         "stylometry.thresholds.ai_confidence_threshold",
         "stylometry.default_baseline",
         "stylometry.custom_baselines_dir",
+        "model.keep_warm_seconds",
         "logging.level",
         "logging.format",
     ]
