@@ -1,0 +1,97 @@
+# PyPI publication pipeline: build -> smoke-test -> (optionally) publish.
+#
+# Publish readiness only. This workflow never runs on push or tag; publication
+# happens solely when a maintainer dispatches it with mode=publish, and the
+# publish job targets the `pypi` GitHub Environment, where required-reviewer
+# protection rules add a second human gate. No tag is created, pushed, or
+# required by this workflow.
+#
+# Publishing uses PyPI Trusted Publishing (OIDC): there is no API-token secret
+# to leak into logs. First-time setup (maintainer, once): on PyPI, add a pending
+# trusted publisher for this repo with workflow name `publish.yml` and
+# environment `pypi`, then configure the matching `pypi` GitHub Environment
+# with required reviewers under Settings -> Environments.
+#
+# mode=dry-run (default) builds the sdist/wheel, runs `twine check` and an
+# installed-wheel smoke test, and uploads the distributions as a workflow
+# artifact. Nothing is published.
+
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run = build + smoke test only; publish = upload to PyPI (pypi environment gate applies)"
+        type: choice
+        options:
+          - dry-run
+          - publish
+        default: dry-run
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Check distribution metadata
+        run: uvx twine check dist/*
+
+      - name: Smoke-test the wheel in a fresh venv
+        run: |
+          python -m venv smoke-venv
+          smoke-venv/bin/pip install --quiet dist/*.whl
+          # The console script starts the stdio MCP server; it must start and
+          # exit cleanly on stdin EOF without loading spaCy/GPT-2 (lazy init).
+          echo -n "" | smoke-venv/bin/writing-tools-mcp > /dev/null 2>&1
+          smoke-venv/bin/python -c "from server.app import main; print('smoke: server.app:main resolves')"
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    # Maintainer-gated twice over: the dispatch input must say publish, and the
+    # `pypi` GitHub Environment enforces its own required-reviewer rules.
+    if: inputs.mode == 'publish'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # Trusted Publishing OIDC; no PYPI_API_TOKEN secret exists
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
