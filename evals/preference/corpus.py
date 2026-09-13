@@ -100,7 +100,10 @@ def load_corpus(path: Path | None = None) -> list[Pair]:
         scene order — the pipeline never re-sorts data).
     """
     corpus_path = path if path is not None else CORPUS_PATH
-    with open(corpus_path, encoding="utf-8") as handle:
-        pairs = [json.loads(line) for line in handle if line.strip()]
+    try:
+        with open(corpus_path, encoding="utf-8") as handle:
+            pairs = [json.loads(line) for line in handle if line.strip()]
+    except json.JSONDecodeError as exc:
+        raise CorpusError(f"{corpus_path}: malformed JSON: {exc}") from exc
     validate_corpus(pairs)
     return pairs

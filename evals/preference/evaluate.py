@@ -31,7 +31,7 @@ import json
 import math
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from evals.preference.corpus import CORPUS_PATH, Pair, load_corpus
 
@@ -64,6 +64,12 @@ VERDICT_REGRESSED = "regressed"
 VERDICT_UNCHANGED = "unchanged"
 
 
+class DeltaAnalyzer(Protocol):
+    """The slice of ``AIDetectionAnalyzer`` the evaluation needs (W4 machinery)."""
+
+    def stylometric_delta(self, text_a: str, text_b: str, baseline: str | None = None) -> dict[str, Any]: ...
+
+
 def binom_cdf(k: int, n: int, p: float) -> float:
     """P(X <= k) for X ~ Binomial(n, p), via exact sums (n is tiny here)."""
     if p <= 0.0:
@@ -89,28 +95,38 @@ def clopper_pearson(k: int, n: int, alpha: float = ALPHA) -> tuple[float, float]
     """
     if n <= 0 or not 0 <= k <= n:
         raise ValueError(f"clopper_pearson needs 0 <= k ({k}) <= n ({n}) > 0")
+    if k == 0:
+        return 0.0, _upper_root(k, n, alpha)
+    if k == n:
+        return _lower_root(k, n, alpha), 1.0
+    return _lower_root(k, n, alpha), _upper_root(k, n, alpha)
 
-    # Lower bound: smallest p with P(X <= k | p) <= alpha/2.
+
+def _lower_root(k: int, n: int, alpha: float) -> float:
+    # P(X <= j | p) is monotonically DECREASING in p: bigger p shifts mass up.
+    # Lower bound: the p where P(X <= k-1) still reaches 1 - alpha/2; below it,
+    # observing k successes would be too lucky.
+    lo, hi = 0.0, 1.0
+    for _ in range(100):
+        mid = (lo + hi) / 2.0
+        if binom_cdf(k - 1, n, mid) > 1.0 - alpha / 2.0:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2.0
+
+
+def _upper_root(k: int, n: int, alpha: float) -> float:
+    # Upper bound: the p where P(X <= k) falls to alpha/2; above it, k
+    # successes would be too unlucky.
     lo, hi = 0.0, 1.0
     for _ in range(100):
         mid = (lo + hi) / 2.0
         if binom_cdf(k, n, mid) > alpha / 2.0:
-            hi = mid
-        else:
-            lo = mid
-    lower = (lo + hi) / 2.0
-
-    # Upper bound: largest p with P(X <= k-1 | p) < 1 - alpha/2.
-    lo, hi = 0.0, 1.0
-    for _ in range(100):
-        mid = (lo + hi) / 2.0
-        if binom_cdf(k - 1, n, mid) < 1.0 - alpha / 2.0:
             lo = mid
         else:
             hi = mid
-    upper = (lo + hi) / 2.0
-
-    return lower, upper
+    return (lo + hi) / 2.0
 
 
 def preference_from_verdicts(verdicts: list[str]) -> str:
@@ -129,7 +145,7 @@ def preference_from_verdicts(verdicts: list[str]) -> str:
     return PREFERENCE_SPLIT
 
 
-def evaluate_pair(analyzer: Any, pair: Pair) -> dict[str, Any]:
+def evaluate_pair(analyzer: DeltaAnalyzer, pair: Pair) -> dict[str, Any]:
     """Run the W4 delta pipeline on one pair and reduce it to a preference.
 
     ``text_a`` is the unedited (earlier) excerpt and ``text_b`` the edited
