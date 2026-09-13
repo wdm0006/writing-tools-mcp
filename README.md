@@ -22,6 +22,7 @@ This server provides the following text analysis tools:
 *   **`perplexity_analysis`**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2. Successful responses include a `findings` array.
 *   **`stylometric_analysis`**: Analyze stylometric features (sentence length, length-robust lexical diversity and vocabulary rarity, POS ratios and bigrams, six readability grade-level formulas, syntactic complexity, punctuation idiosyncrasies, hedge/booster rate, per-function-word/Burrows' Delta profile, character n-gram profile) for AI detection, against a built-in or custom baseline. Successful responses include a `findings` array.
 *   **`stylometric_delta`**: Profile a draft and its revision against the same baseline and report what the revision moved: per-statistic z-score deltas, an `improved`/`regressed`/`unchanged` verdict per dimension, and a `findings` array for the revised text.
+*   **`analyze_sections`**: Run a selected subset of the analysis tools on every markdown section of a document, plus a whole-document rollup. Each section carries its key, heading level, rendered text, an impact-ordered `findings` array located at `section:<key>`, and per-tool results.
 
 ## Install
 
@@ -238,6 +239,7 @@ You can configure any MCP client (like Claude.ai, Windsurf, or Cursor) to connec
 *   "Identify any sentences using passive voice in my draft." (Provide text, calls `passive_voice_detection`)
 *   "What's the word count for this paragraph?" (Provide text, calls `word_count`)
 *   "Get the readability scores for each section of this document." (Provide markdown text, calls `readability_score` with `level="section"`)
+*   "Break this document into sections and tell me which section needs the most work." (Provide markdown text, calls `analyze_sections`)
 
 **AI Detection:**
 
@@ -420,7 +422,19 @@ Below is a detailed reference for each tool provided by the server.
     *   `text_b_analysis` (`dict`): The revised text's full `stylometric_analysis` response, so the verdict carries its own evidence.
     *   `findings` (`list`): Actionable, located observations about the **revised** text (see [Revision Prompts](#revision-prompts)); pass the whole response to the `verify_revision` prompt to render it as a revision verdict.
 
-    Error responses (an empty `text_a` or `text_b`, or a missing baseline - the error names which) keep the family's `{"error": str}` shape with the delta keys present but empty (`deltas`/`verdict` as `[]`, `text_b_analysis` as `null`), so callers can destructure without shape-switching.
+**`analyze_sections`**
+
+*   **Description**: Run a selected subset of the analysis tools on every markdown section of a document, plus a whole-document rollup. Sections come from the same parser as the section/paragraph analysis levels: heading-keyed and hierarchy-aware (a subsection's body folds into its parent), with pre-first-heading content preserved as its own `_leading_content` section (heading level 0). Each section entry carries `key`, `heading_level`, the rendered section `text`, an impact-ordered `findings` array (located at `section:<key>`), and per-tool `results` — each exactly the response that tool returns for the section text at its default settings. The `rollup` carries each selected tool's whole-document response (findings included), identical to the standalone tool's output, so per-section views can be checked against whole-document analysis. An empty document yields no sections with the rollup still computed; a document with no headings yields the single `_leading_content` section.
+*   **Parameters**:
+    *   `text` (`str`): The markdown document to analyze.
+    *   `tools` (`list[str]`, optional): The analysis tools to run per section. Choose from: `readability`, `word_count`, `character_count`, `reading_time`, `spellcheck`, `passive_voice`, `perplexity`, `stylometry`. Defaults to everything except the GPT-2 tools (`perplexity` and `stylometry` stay opt-in since they are the expensive tier). Unknown names yield `{"error": ...}` naming the valid menu.
+    *   `baseline` (`str`, optional): Baseline name passed through to the per-section and rollup stylometry runs (ignored unless `stylometry` is selected). See [Custom Baselines](#custom-baselines).
+*   **Returns**: `dict` - Section batch analysis including:
+    *   `sections` (`list`): One entry per section, in document order: `key` (`str`), `heading_level` (`int`, 0 for leading content), `text` (`str`), `findings` (`list`, impact-ordered — same shape the standalone tools attach), and `results` (`dict`, per-tool raw responses)
+    *   `rollup` (`dict`): Each selected tool's whole-document response — identical to the standalone tool's output, `findings` included
+    *   `tools_used` (`list`): The validated selection
+    *   `section_count` (`int`): Number of sections analyzed
+
 
 ---
 

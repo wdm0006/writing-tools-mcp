@@ -88,6 +88,10 @@ def parse_markdown_sections(text: str) -> Dict[str, Any]:
     Top level has key "full_text". Includes paragraphs for full text and sections.
     Repeated headings are disambiguated with a " (n)" suffix ("## Notes", "## Notes (2)")
     so every occurrence keeps its own entry and its own "_paragraphs" sibling.
+    Content before the first heading is preserved as its own "_leading_content"
+    section (heading level 0) instead of being silently dropped. "_section_levels"
+    maps every section key to its heading level; its insertion order is document
+    order.
     """
     md = MarkdownIt()
     tokens = md.parse(text)
@@ -204,14 +208,17 @@ def parse_markdown_sections(text: str) -> Dict[str, Any]:
 
     sections["paragraphs"] = split_paragraphs(text)
 
+    # Section metadata: heading level per section key (0 for "_leading_content",
+    # which has no heading). section_data is in document order, so this mapping
+    # doubles as the document-order list of section keys.
+    sections["_section_levels"] = {key: level for level, key, _ in section_data}
+
     for key, tokens_list in temp_sections_tokens.items():
-        if key == "_leading_content":
-            # Maybe handle leading content separately if needed
-            pass
-        else:
-            section_text = _render_tokens_to_text(tokens_list)
-            sections[key] = section_text
-            sections[f"{key}_paragraphs"] = split_paragraphs(section_text)
+        # Pre-first-heading content is a real section, not a silent drop: it
+        # renders exactly like a headed section, under its reserved key.
+        section_text = _render_tokens_to_text(tokens_list)
+        sections[key] = section_text
+        sections[f"{key}_paragraphs"] = split_paragraphs(section_text)
 
     # Ensure no list values accidentally assigned to section keys
     for key, value in sections.items():

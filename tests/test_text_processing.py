@@ -110,12 +110,14 @@ Content for section 2.
         assert "# Section 2" in result
 
     def test_parse_markdown_no_sections(self):
-        """Test parsing markdown with no headings."""
+        """No headings: the whole document is preserved as the level-0 leading section."""
         text = "Just some text without headings."
         result = parse_markdown_sections(text)
 
         assert result["full_text"] == text
-        assert len(result) == 2  # full_text and paragraphs
+        assert result["_leading_content"] == text
+        assert result["_section_levels"] == {"_leading_content": 0}
+        assert len(result) == 5  # full_text, paragraphs, leading section + its paragraphs, levels
 
     def test_strip_markdown_markup(self):
         """Test stripping markdown markup."""
