@@ -312,6 +312,17 @@ Three MCP prompts support an analyze → revise → verify loop:
 
 Seven analysis tools (`readability_score`, `perplexity_analysis`, `stylometric_analysis`, `keyword_density`, `keyword_frequency`, `top_keywords`, `keyword_context`) attach a `findings` array to successful responses — located, actionable observations with `rule`, `location`, `message`, and `fix_hint` fields, where fix hints coach the fix rather than restate the flaw. Stylometric findings are honestly scoped to the chosen baseline: indicators the baseline cannot measure produce no finding. Error responses are unchanged, and `passive_voice_detection` still returns a plain list of sentences.
 
+## Reference Writing Loop
+
+`examples/writing_loop.py` is a runnable reference agent that wires the loop end-to-end against the live stdio server: a weak draft goes to `stylometric_analysis`, its findings render into a `guided_revision` brief, a revision is produced, and `stylometric_delta` verifies the revision actually moved the statistics toward the baseline — with `verify_revision` rendering the verdict prompt. It exits `0` when verification is clear, `1` when the revision regressed statistics the loop should have caught, and `2` when the loop itself failed (server unreachable, tools missing, error envelopes).
+
+```bash
+uv run python examples/writing_loop.py                      # draft -> revise -> verify, exit 0
+uv run python examples/writing_loop.py --demo-failure       # revision regresses the draft; exit 1
+```
+
+A committed transcript of both runs lives in `examples/writing_loop.transcript.md`: the happy path clears with 14 improved / 0 regressed statistics against the `brown_corpus` baseline, and the failure-mode run shows the loop refusing to sign off on a revision that moved nine statistics further from the baseline.
+
 ## Tool Reference
 
 Below is a detailed reference for each tool provided by the server.
