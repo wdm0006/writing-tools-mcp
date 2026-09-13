@@ -48,6 +48,7 @@ ROBUST_STATISTICS = frozenset(
         "mean_word_frequency",
         "word_len_std",
         "lexical_density",
+        "punct_density",
         "semicolon_ratio",
         "em_dash_ratio",
         "ellipsis_ratio",

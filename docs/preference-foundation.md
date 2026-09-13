@@ -6,7 +6,7 @@ direction could power a "writing quality" preference score. This evaluation meas
 delta direction actually agrees with the edited variant on real public-domain edit pairs.
 
 **Answer.** It doesn't. The delta direction agrees with the edited variant at coin-flip rates
-(pair level 41.7%, 95% CI [15%, 72%]; verdict level 47.6%, 95% CI [41%, 55%]). **Recommendation:
+(pair level 45.5%, 95% CI [17%, 77%]; verdict level 47.6%, 95% CI [41%, 55%]). **Recommendation:
 no-go** on building a production preference score from this signal in its current form. The
 evidence, method, and what would reverse this call are below.
 
@@ -75,10 +75,10 @@ a deliberate mismatch revisited in §5.
 219 (pair, statistic) observations were recorded: 206 decided (98 improved, 108 regressed), 13
 unchanged, and 2 absent (`pos_num` is undefined for two excerpts containing no numerals).
 
-**Pair level.** Of 12 decided pairs (1 split: Frankenstein "creation night", an 8–8 tie), **5
-(41.7%) prefer the edited text**; 95% CI **[15.2%, 72.3%]**. A two-sided binomial test against a
-fair coin gives p = 0.774 — this sample cannot even distinguish the signal from chance, and the
-point estimate sits *below* 50%.
+**Pair level.** Of 11 decided pairs (2 splits: Alice's "rabbit hole" and Dorian Gray's "studio",
+both 8–8 ties), **5 (45.5%) prefer the edited text**; 95% CI **[16.8%, 76.6%]**. A two-sided
+binomial test against a fair coin gives p = 1.00 — this sample cannot even distinguish the signal
+from chance, and the point estimate sits just below 50%.
 
 **Verdict level.** Of 206 decided statistic movements, **98 (47.6%) were improvements**; 95% CI
 **[40.6%, 54.6%]**. This interval is tight enough to say the underlying rate is within about ±7
@@ -110,15 +110,26 @@ significant at this sample size, and selecting them *after* seeing results would
 comparisons — they are noted as hypotheses, not findings.
 
 A secondary observation: edited excerpts sit marginally closer to the baseline *on average*
-(mean |z| 1.794 vs 1.821) — a slight global pull toward the baseline that does not determine the
+(mean |z| 1.631 vs 1.670) — a slight global pull toward the baseline that does not determine the
 per-statistic direction majorities the preference rule depends on.
 
-Per stratum: edition_revision pairs prefer the edited text 4/10 (1 split); manuscript_to_publication
-1/3. Both strata point the same way — nowhere.
+Per stratum: edition_revision pairs prefer the edited text 4/9 (1 split); manuscript_to_publication
+1/2 (1 split). Both strata point the same way — nowhere.
+
+**A note on the `punct_density` unit correction (September 2026).** After this report shipped, the
+punctuation-density feature was corrected from punctuation marks *per character* to per word
+(companion PR; the per-character z-scores it produced against the Brown baseline sat in a narrow
+≈ [−4.1, −3.3] band and carried no information). Re-running this evaluation under the corrected
+unit changed exactly the 13 `punct_density` observations: 10 verdicts flipped, in a balanced 5
+improved → regressed / 5 regressed → improved split, so the verdict-level totals (98/206, 47.6%)
+are unchanged; the pair level moved from 41.7% (5/12, one split) to 45.5% (5/11, two splits) as
+single-vote margins tipped. The numbers in this document and `results.json` reflect the corrected
+pipeline; the headline conclusion does not move — a dead feature was not the explanation for the
+chance-level agreement.
 
 ## 4. Limitations
 
-- **Small n.** 13 pairs (12 decided). The pair-level CI spans 57 points; the study has essentially
+- **Small n.** 13 pairs (11 decided). The pair-level CI spans 60 points; the study has essentially
   no power to detect a modest true effect. This is a foundation-building probe, not a powered
   evaluation.
 - **Provenance proxy.** "Edited" means "later author/editor revision", not a human quality

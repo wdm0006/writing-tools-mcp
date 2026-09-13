@@ -112,7 +112,12 @@ WORKS: tuple[WorkSource, ...] = (
         author="William Noyes",
         title="Handwork in Wood",
         year="1910",
-        sha256="9f2f62be4bbbd1c16557776eaf8fe81725b7ac9f4345a005fa2b313a03308652",
+        # Re-pinned 2026-09-13: Gutenberg re-transcribed the file after the W8
+        # build (the original pinned bytes are no longer served or archived -
+        # checked Wayback snapshots of all three candidate URLs). The extracted
+        # corpus moved by 49 of ~326k body characters across 8 of 11 documents;
+        # document count is unchanged.
+        sha256="65eec44badfba534b333a3f6585ca11d619531954b2e2e6ff9b86b613f3daef5",
         heading=r"^CHAPTER [IVX]+[.,]",
         stops=(r"^INDEX\.",),
     ),
@@ -122,7 +127,10 @@ WORKS: tuple[WorkSource, ...] = (
         author="Frederick Irving Anderson",
         title="Electricity for the Farm",
         year="1915",
-        sha256="7f5c3bdac70f37e0b22e121e62727fef811bb3c0cca711beef0421afb91d8e20",
+        # Re-pinned 2026-09-13: same upstream re-transcription wave as pg20846
+        # (original pinned bytes no longer served or archived). Extracted corpus
+        # moved by 15 of ~257k body characters; document count unchanged.
+        sha256="63c31f569f6a431e5aeec08d361e106cf94b3a76f77f3effb236fa7b699bc728",
         heading=r"^CHAPTER [IVX]+\s*$",
     ),
     WorkSource(

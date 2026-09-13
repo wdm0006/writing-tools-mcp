@@ -189,11 +189,24 @@ class TestStylemetricAnalyzer:
         assert abs(result["NOUN"] - 0.667) < 0.01  # 4/6
         assert abs(result["VERB"] - 0.333) < 0.01  # 2/6
 
-    def test_punctuation_density_calculation(self, analyzer):
-        """Test punctuation density calculation."""
-        text = "Hello, world! How are you?"  # 3 punct marks, 26 total chars
-        result = analyzer._punctuation_density(text)
-        assert abs(result - 0.115) < 0.01  # 3/26 ≈ 0.115
+    def test_punctuation_density_calculation(self, nlp):
+        """Test punctuation density calculation.
+
+        Unit is punctuation marks per word (matches the baseline constant
+        0.14 in server/data/baselines/brown_corpus.json). Uses a real spaCy
+        parse on purpose: under the MagicMock nlp of the ``analyzer``
+        fixture, word_count hits the zero guard and the density would read
+        0.0 regardless of the text.
+        """
+        text = "Hello, world! How are you?"  # 3 punct marks, 5 words
+        result = StylemetricAnalyzer(nlp)._punctuation_density(text)
+        assert abs(result - 0.6) < 0.01  # 3/5 = 0.6
+
+    def test_punctuation_density_guards(self, nlp):
+        """Empty and whitespace-only text have no words: density is 0.0."""
+        analyzer = StylemetricAnalyzer(nlp)
+        assert analyzer._punctuation_density("") == 0.0
+        assert analyzer._punctuation_density("   \n\t  ") == 0.0
 
     def test_comma_ratio_calculation(self, analyzer):
         """Test comma ratio calculation."""

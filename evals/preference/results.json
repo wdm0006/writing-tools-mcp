@@ -14,10 +14,10 @@
       "work": "Frankenstein",
       "stratum": "edition_revision",
       "n_statistics": 17,
-      "n_improved": 8,
-      "n_regressed": 8,
+      "n_improved": 7,
+      "n_regressed": 9,
       "n_unchanged": 1,
-      "preference": "split",
+      "preference": "unedited",
       "per_statistic": [
         {
           "statistic": "avg_sentence_len",
@@ -119,10 +119,10 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.93,
-          "z_edited": -3.88,
-          "delta": 0.05,
-          "verdict": "improved"
+          "z_unedited": -0.53,
+          "z_edited": -0.59,
+          "delta": -0.06,
+          "verdict": "regressed"
         },
         {
           "statistic": "sentence_len_std",
@@ -145,8 +145,8 @@
       "work": "Frankenstein",
       "stratum": "edition_revision",
       "n_statistics": 17,
-      "n_improved": 4,
-      "n_regressed": 5,
+      "n_improved": 3,
+      "n_regressed": 6,
       "n_unchanged": 8,
       "preference": "unedited",
       "per_statistic": [
@@ -250,10 +250,10 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.72,
-          "z_edited": -3.66,
-          "delta": 0.06,
-          "verdict": "improved"
+          "z_unedited": 0.53,
+          "z_edited": 0.63,
+          "delta": 0.1,
+          "verdict": "regressed"
         },
         {
           "statistic": "sentence_len_std",
@@ -381,9 +381,9 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.9,
-          "z_edited": -3.84,
-          "delta": 0.06,
+          "z_unedited": -0.34,
+          "z_edited": -0.32,
+          "delta": 0.02,
           "verdict": "improved"
         },
         {
@@ -407,8 +407,8 @@
       "work": "Frankenstein",
       "stratum": "edition_revision",
       "n_statistics": 16,
-      "n_improved": 10,
-      "n_regressed": 6,
+      "n_improved": 9,
+      "n_regressed": 7,
       "n_unchanged": 0,
       "preference": "edited",
       "per_statistic": [
@@ -505,10 +505,10 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.91,
-          "z_edited": -3.48,
-          "delta": 0.43,
-          "verdict": "improved"
+          "z_unedited": 0.3,
+          "z_edited": 0.82,
+          "delta": 0.52,
+          "verdict": "regressed"
         },
         {
           "statistic": "sentence_len_std",
@@ -636,9 +636,9 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -4.05,
-          "z_edited": -3.95,
-          "delta": 0.1,
+          "z_unedited": -1.04,
+          "z_edited": -0.24,
+          "delta": 0.8,
           "verdict": "improved"
         },
         {
@@ -662,8 +662,8 @@
       "work": "On the Origin of Species",
       "stratum": "edition_revision",
       "n_statistics": 17,
-      "n_improved": 6,
-      "n_regressed": 10,
+      "n_improved": 5,
+      "n_regressed": 11,
       "n_unchanged": 1,
       "preference": "unedited",
       "per_statistic": [
@@ -767,10 +767,10 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.8,
-          "z_edited": -3.77,
-          "delta": 0.03,
-          "verdict": "improved"
+          "z_unedited": 0.35,
+          "z_edited": 0.53,
+          "delta": 0.18,
+          "verdict": "regressed"
         },
         {
           "statistic": "sentence_len_std",
@@ -793,8 +793,8 @@
       "work": "On the Origin of Species",
       "stratum": "edition_revision",
       "n_statistics": 17,
-      "n_improved": 10,
-      "n_regressed": 7,
+      "n_improved": 11,
+      "n_regressed": 6,
       "n_unchanged": 0,
       "preference": "edited",
       "per_statistic": [
@@ -898,10 +898,10 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.5,
-          "z_edited": -3.94,
-          "delta": -0.44,
-          "verdict": "regressed"
+          "z_unedited": 2.56,
+          "z_edited": -0.4,
+          "delta": -2.96,
+          "verdict": "improved"
         },
         {
           "statistic": "sentence_len_std",
@@ -924,8 +924,8 @@
       "work": "Alice's Adventures in Wonderland",
       "stratum": "manuscript_to_publication",
       "n_statistics": 17,
-      "n_improved": 5,
-      "n_regressed": 12,
+      "n_improved": 6,
+      "n_regressed": 11,
       "n_unchanged": 0,
       "preference": "unedited",
       "per_statistic": [
@@ -1029,10 +1029,10 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.66,
-          "z_edited": -3.71,
-          "delta": -0.05,
-          "verdict": "regressed"
+          "z_unedited": 0.82,
+          "z_edited": 0.72,
+          "delta": -0.1,
+          "verdict": "improved"
         },
         {
           "statistic": "sentence_len_std",
@@ -1160,9 +1160,9 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.12,
-          "z_edited": -3.22,
-          "delta": -0.1,
+          "z_unedited": 2.6,
+          "z_edited": 2.77,
+          "delta": 0.17,
           "verdict": "regressed"
         },
         {
@@ -1186,10 +1186,10 @@
       "work": "Alice's Adventures in Wonderland",
       "stratum": "manuscript_to_publication",
       "n_statistics": 17,
-      "n_improved": 7,
-      "n_regressed": 9,
+      "n_improved": 8,
+      "n_regressed": 8,
       "n_unchanged": 1,
-      "preference": "unedited",
+      "preference": "split",
       "per_statistic": [
         {
           "statistic": "avg_sentence_len",
@@ -1291,10 +1291,10 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.45,
-          "z_edited": -3.55,
-          "delta": -0.1,
-          "verdict": "regressed"
+          "z_unedited": 1.32,
+          "z_edited": 1.18,
+          "delta": -0.14,
+          "verdict": "improved"
         },
         {
           "statistic": "sentence_len_std",
@@ -1317,10 +1317,10 @@
       "work": "The Picture of Dorian Gray",
       "stratum": "edition_revision",
       "n_statistics": 16,
-      "n_improved": 7,
-      "n_regressed": 9,
+      "n_improved": 8,
+      "n_regressed": 8,
       "n_unchanged": 0,
-      "preference": "unedited",
+      "preference": "split",
       "per_statistic": [
         {
           "statistic": "avg_sentence_len",
@@ -1415,10 +1415,10 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.7,
-          "z_edited": -3.85,
-          "delta": -0.15,
-          "verdict": "regressed"
+          "z_unedited": 0.6,
+          "z_edited": -0.08,
+          "delta": -0.68,
+          "verdict": "improved"
         },
         {
           "statistic": "sentence_len_std",
@@ -1441,8 +1441,8 @@
       "work": "The Picture of Dorian Gray",
       "stratum": "edition_revision",
       "n_statistics": 17,
-      "n_improved": 7,
-      "n_regressed": 10,
+      "n_improved": 6,
+      "n_regressed": 11,
       "n_unchanged": 0,
       "preference": "unedited",
       "per_statistic": [
@@ -1546,10 +1546,10 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.47,
-          "z_edited": -3.33,
-          "delta": 0.14,
-          "verdict": "improved"
+          "z_unedited": 1.73,
+          "z_edited": 2.1,
+          "delta": 0.37,
+          "verdict": "regressed"
         },
         {
           "statistic": "sentence_len_std",
@@ -1572,8 +1572,8 @@
       "work": "The Picture of Dorian Gray",
       "stratum": "edition_revision",
       "n_statistics": 17,
-      "n_improved": 9,
-      "n_regressed": 8,
+      "n_improved": 10,
+      "n_regressed": 7,
       "n_unchanged": 0,
       "preference": "edited",
       "per_statistic": [
@@ -1677,10 +1677,10 @@
         },
         {
           "statistic": "punct_density",
-          "z_unedited": -3.42,
-          "z_edited": -3.47,
-          "delta": -0.05,
-          "verdict": "regressed"
+          "z_unedited": 1.83,
+          "z_edited": 1.47,
+          "delta": -0.36,
+          "verdict": "improved"
         },
         {
           "statistic": "sentence_len_std",
@@ -1701,12 +1701,12 @@
   ],
   "pair_level": {
     "n_pairs": 13,
-    "decided_pairs": 12,
+    "decided_pairs": 11,
     "agreeing_pairs": 5,
-    "agreement_rate": 0.4167,
+    "agreement_rate": 0.4545,
     "ci95": [
-      0.1517,
-      0.7233
+      0.1675,
+      0.7662
     ]
   },
   "verdict_level": {
@@ -1823,7 +1823,7 @@
       "improved": 7,
       "regressed": 6,
       "unchanged": 0,
-      "mean_delta": -0.002,
+      "mean_delta": -0.165,
       "agreement": 0.538
     },
     "sentence_len_std": {
