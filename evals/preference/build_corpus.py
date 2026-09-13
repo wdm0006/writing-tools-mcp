@@ -86,15 +86,16 @@ _PAGE_NUMBER = re.compile(r"(?<=\s)\d{1,5}(?=\s)")
 _SMALL_CAPS_WORDS = ("THE",)
 
 
+def _smallcaps_replacement(match: re.Match[str]) -> str:
+    letters = match.group(1) + match.group(2)
+    if letters.upper() in _SMALL_CAPS_WORDS:
+        return letters + " "
+    return match.group(0)
+
+
 def _merge_smallcaps(text: str) -> str:
     """Merge whitelisted spaced small-caps words ('T HE studio' -> 'THE studio')."""
-    return re.sub(
-        r"\b([A-Z])\s+([A-Z]{1,3})\s+(?=[a-z])",
-        lambda m: (m.group(1) + m.group(2) + " ")
-        if (m.group(1) + m.group(2)).upper() in _SMALL_CAPS_WORDS
-        else m.group(0),
-        text,
-    )
+    return re.sub(r"\b([A-Z])\s+([A-Z]{1,3})\s+(?=[a-z])", _smallcaps_replacement, text)
 
 
 WIKISOURCE_API = "https://en.wikisource.org/w/api.php"
