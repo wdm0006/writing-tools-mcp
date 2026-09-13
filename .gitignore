@@ -178,3 +178,8 @@ cython_debug/
 # MCP Bundle artifacts
 *.mcpb
 mutants/
+
+# Domain-baseline corpus cache and assembled corpora (reproducible via
+# scripts/fetch_domain_corpora.py; only the built baselines are committed)
+data/corpora/
+data/corpora/_raw/
