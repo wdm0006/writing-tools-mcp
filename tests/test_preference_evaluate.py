@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from evals.preference.corpus import Pair, load_corpus
+from evals.preference.corpus import load_corpus
 from evals.preference.evaluate import (
     ALPHA,
     PREFERENCE_EDITED,

@@ -96,6 +96,7 @@ def _merge_smallcaps(text: str) -> str:
         text,
     )
 
+
 WIKISOURCE_API = "https://en.wikisource.org/w/api.php"
 WIKISOURCE_DORIAN_TITLE = "Lippincott's Monthly Magazine/Volume 46/July 1890/The Picture of Dorian Gray"
 WIKISOURCE_DORIAN_URL = "https://en.wikisource.org/wiki/" + urllib.parse.quote(WIKISOURCE_DORIAN_TITLE)
@@ -312,7 +313,7 @@ def normalize_gutenberg_text(raw: str) -> str:
     end_match = _PG_BOILERPLATE_END.search(raw, start)
     if not end_match:
         raise CorpusBuildError("source text has no Project Gutenberg end marker")
-    body = raw[start:end_match.start()]
+    body = raw[start : end_match.start()]
     body = _ILLUSTRATION.sub(" ", body)
     body = _FORMAT_CHARS.sub("", body)
     return _normalize_quotes(re.sub(r"\s+", " ", body).strip())
@@ -348,14 +349,18 @@ def render_wikisource_page(title: str, chapters: int) -> str:
     """
     parts: list[str] = []
     for chapter in range(1, chapters + 1):
-        url = WIKISOURCE_API + "?" + urllib.parse.urlencode(
-            {
-                "action": "parse",
-                "page": f"{title}/Chapter {chapter}",
-                "prop": "text",
-                "format": "json",
-                "formatversion": "2",
-            }
+        url = (
+            WIKISOURCE_API
+            + "?"
+            + urllib.parse.urlencode(
+                {
+                    "action": "parse",
+                    "page": f"{title}/Chapter {chapter}",
+                    "prop": "text",
+                    "format": "json",
+                    "formatversion": "2",
+                }
+            )
         )
         payload = json.loads(_open_with_retry(url))
         parts.append(payload["parse"]["text"])
