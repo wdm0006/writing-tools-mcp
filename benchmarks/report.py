@@ -6,6 +6,7 @@ Anything that does vary between runs belongs in ``run_metadata.json``, which
 the runner writes separately.
 """
 
+import math
 from typing import Any, Dict, List, Optional, Sequence
 
 from benchmarks import metrics
@@ -209,9 +210,11 @@ def build_report(
             f"- `doc_burstiness` null on {unmeasured['doc_burstiness']} of {unmeasured['scored']} scored documents.",
             "",
         ]
+        lines += _perplexity_sweep_section(records, tpr_targets)
 
     if "stylometry" in methods:
         lines += _sweep_section(records, tpr_targets)
+        lines += _fire_rate_section(records)
 
     lines += ["## Per-feature class summaries", ""]
     if "stylometry" in methods:
@@ -311,6 +314,116 @@ def _sweep_section(records: Sequence[Dict[str, Any]], tpr_targets: Sequence[floa
         lines.append(
             f"| {_num(point['threshold'], 3)} | {_num(values['tpr'])} | {_num(values['fpr'])} "
             f"| {matrix['tp']} | {matrix['fn']} | {matrix['fp']} | {matrix['tn']} |"
+        )
+    lines.append("")
+    return lines
+
+
+#: Perplexity statistics swept independently, each with the direction the
+#: shipped rule applies to it: both flag a document when the value is *low*.
+PERPLEXITY_SWEEPS = (
+    ("doc_ppl", "ppl_max"),
+    ("doc_burstiness", "burstiness_min"),
+)
+
+#: List-valued stylometry outputs counted in the fire-rate table.
+FIRE_RATE_KINDS = ("warnings", "errors", "ai_indicators")
+
+
+def _perplexity_pairs(records: Sequence[Dict[str, Any]], statistic: str):
+    """``(label, value)`` pairs for one statistic, and how many were excluded per label."""
+    scored, _ = metrics.partition_outcomes(records, "perplexity")
+    pairs = []
+    excluded = dict.fromkeys(metrics.LABELS, 0)
+    for record in scored:
+        value = (record["perplexity"].get("measurements") or {}).get(statistic)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            excluded[record["label"]] += 1
+            continue
+        pairs.append((record["label"], float(value)))
+    return pairs, excluded, len(scored)
+
+
+def _sweep_table(pairs, direction: str, places: int) -> List[str]:
+    lines = [
+        "| threshold | TPR | FPR | TP | FN | FP | TN |",
+        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for point in metrics.threshold_sweep(pairs, direction):
+        matrix = point["confusion_matrix"]
+        values = point["metrics"]
+        lines.append(
+            f"| {_num(point['threshold'], places)} | {_num(values['tpr'])} | {_num(values['fpr'])} "
+            f"| {matrix['tp']} | {matrix['fn']} | {matrix['fp']} | {matrix['tn']} |"
+        )
+    return lines
+
+
+def _perplexity_sweep_section(records: Sequence[Dict[str, Any]], tpr_targets: Sequence[float]) -> List[str]:
+    lines = [
+        "## Perplexity statistics swept independently",
+        "",
+        "Each statistic below is swept alone with a `value <= threshold` rule - low perplexity and "
+        "low burstiness are the machine-like direction the shipped thresholds encode. A "
+        "single-statistic cut is a *different* classifier from the shipped boolean above, which "
+        "flags a document only when perplexity is below `ppl_max` **and** burstiness is below "
+        "`burstiness_min` - so these sweeps are expected to disagree with it.",
+        "",
+        "Documents whose statistic is `null` (or non-finite) on a successful analysis are excluded "
+        "from that statistic's sweep, never counted as negatives. Failed analyses are excluded too.",
+        "",
+    ]
+    for statistic, setting in PERPLEXITY_SWEEPS:
+        pairs, excluded, n_scored = _perplexity_pairs(records, statistic)
+        n_excluded = excluded[metrics.HUMAN] + excluded[metrics.MACHINE]
+        lines += [
+            f"### `{statistic}` (shipped setting: `perplexity.thresholds.{setting}`)",
+            "",
+            f"Swept over {len(pairs)} of {n_scored} scored documents; {n_excluded} excluded for a "
+            f"`null` value ({excluded[metrics.HUMAN]} human / {excluded[metrics.MACHINE]} machine).",
+            "",
+            "| target TPR | threshold | achieved TPR | FPR | TP | FN | FP | TN |",
+            "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for row in metrics.fpr_at_tpr_targets(pairs, tpr_targets, metrics.AT_OR_BELOW):
+            matrix = row.get("confusion_matrix")
+            if matrix is None:
+                lines.append(
+                    f"| {_pct(row['target_tpr'])} | n/a | n/a | n/a | - | - | - | - "
+                    "| (no threshold reaches this target)"
+                )
+                continue
+            lines.append(
+                f"| {_pct(row['target_tpr'])} | {_num(row['threshold'], 2)} | {_num(row['achieved_tpr'])} "
+                f"| {_num(row['fpr'])} | {matrix['tp']} | {matrix['fn']} | {matrix['fp']} | {matrix['tn']} |"
+            )
+        lines += ["", f"Full `{statistic}` sweep, one row per observed value:", ""]
+        lines += _sweep_table(pairs, metrics.AT_OR_BELOW, 2)
+        lines.append("")
+    return lines
+
+
+def _fire_rate_section(records: Sequence[Dict[str, Any]]) -> List[str]:
+    denominators, rows = metrics.flag_fire_rates(records, "stylometry", FIRE_RATE_KINDS)
+    lines = [
+        "## Stylometry flag fire rates by class",
+        "",
+        "How many scored documents of each class each individual `warnings`, `errors` and "
+        "`ai_indicators` entry fired on, sorted by total fire count. A flag that fires at the same "
+        "rate on both classes carries no information about either; one that fires on nearly every "
+        "document of both points at a miscalibrated baseline rather than at the text.",
+        "",
+        f"Denominators: {denominators[metrics.HUMAN]} scored human, "
+        f"{denominators[metrics.MACHINE]} scored machine documents.",
+        "",
+        "| flag | human | human rate | machine | machine rate |",
+        "| --- | ---: | ---: | ---: | ---: |",
+    ]
+    for row in rows:
+        lines.append(
+            f"| `{row['kind']}: {row['flag']}` | {row['human']}/{denominators[metrics.HUMAN]} "
+            f"| {_pct(row['human_rate'])} | {row['machine']}/{denominators[metrics.MACHINE]} "
+            f"| {_pct(row['machine_rate'])} |"
         )
     lines.append("")
     return lines

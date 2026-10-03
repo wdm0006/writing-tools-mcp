@@ -188,6 +188,124 @@ class TestThresholdSweep:
         assert rows[0] == {"target_tpr": 0.5, "threshold": None, "achieved_tpr": None, "fpr": None}
 
 
+class TestSweepDirection:
+    """A ``<=`` rule, for statistics that run lower on machine text."""
+
+    @staticmethod
+    def pairs():
+        return [
+            (MACHINE, 1.0),
+            (MACHINE, 3.0),
+            (MACHINE, 3.0),
+            (MACHINE, 8.0),
+            (HUMAN, 3.0),
+            (HUMAN, 8.0),
+            (HUMAN, 10.0),
+            (HUMAN, 10.0),
+        ]
+
+    def test_at_or_below_sweep_values_are_exact(self):
+        sweep = {
+            point["threshold"]: point for point in metrics.threshold_sweep(self.pairs(), direction=metrics.AT_OR_BELOW)
+        }
+        assert list(sweep) == [1.0, 3.0, 8.0, 10.0]
+        assert sweep[1.0]["confusion_matrix"] == {"tp": 1, "fn": 3, "fp": 0, "tn": 4}
+        assert sweep[3.0]["confusion_matrix"] == {"tp": 3, "fn": 1, "fp": 1, "tn": 3}
+        assert sweep[8.0]["confusion_matrix"] == {"tp": 4, "fn": 0, "fp": 2, "tn": 2}
+        assert sweep[10.0]["confusion_matrix"] == {"tp": 4, "fn": 0, "fp": 4, "tn": 0}
+
+    def test_default_direction_is_at_or_above(self):
+        default = {point["threshold"]: point for point in metrics.threshold_sweep(self.pairs())}
+        explicit = metrics.threshold_sweep(self.pairs(), direction=metrics.AT_OR_ABOVE)
+        assert metrics.threshold_sweep(self.pairs()) == explicit
+        # Same pairs, opposite rule: at 3.0 every human but none of the 1.0 machine document is flagged.
+        assert default[3.0]["confusion_matrix"] == {"tp": 3, "fn": 1, "fp": 4, "tn": 0}
+
+    def test_fpr_at_tpr_targets_picks_the_lowest_threshold_for_at_or_below(self):
+        rows = metrics.fpr_at_tpr_targets(self.pairs(), [0.50, 0.75, 0.90], direction=metrics.AT_OR_BELOW)
+        by_target = {row["target_tpr"]: row for row in rows}
+
+        # 3.0 reaches 0.75 exactly; 8.0 and 10.0 also reach it but at a higher FPR.
+        assert by_target[0.75]["threshold"] == pytest.approx(3.0)
+        assert by_target[0.75]["achieved_tpr"] == pytest.approx(0.75)
+        assert by_target[0.75]["fpr"] == pytest.approx(0.25)
+        assert by_target[0.50]["threshold"] == pytest.approx(3.0)
+        assert by_target[0.90]["threshold"] == pytest.approx(8.0)
+        assert by_target[0.90]["achieved_tpr"] == pytest.approx(1.0)
+        assert by_target[0.90]["fpr"] == pytest.approx(0.5)
+
+    def test_unknown_direction_is_rejected(self):
+        with pytest.raises(ValueError, match="direction"):
+            metrics.threshold_sweep(self.pairs(), direction=">")
+        with pytest.raises(ValueError, match="direction"):
+            metrics.fpr_at_tpr_targets(self.pairs(), [0.5], direction="<")
+
+
+class TestFlagFireRates:
+    @staticmethod
+    def records():
+        def flags(errors=(), warnings=(), indicators=()):
+            return {
+                **ok_stylometry(False, 0.0),
+                "errors": list(errors),
+                "warnings": list(warnings),
+                "ai_indicators": list(indicators),
+            }
+
+        return [
+            make_record("h1", HUMAN, stylometry=flags(errors=["shared"], warnings=["shared"])),
+            make_record("h2", HUMAN, stylometry=flags(errors=["shared"])),
+            make_record("m1", MACHINE, stylometry=flags(errors=["shared", "machine_only", "machine_only"])),
+            make_record("m2", MACHINE, stylometry=flags(indicators=["machine_only"])),
+            make_record("m3", MACHINE, stylometry=flags()),
+            make_record("m4", MACHINE, stylometry={"ok": False, "error": "boom", "errors": ["machine_only"]}),
+        ]
+
+    def test_counts_per_class_with_denominators(self):
+        denominators, rows = metrics.flag_fire_rates(
+            self.records(), "stylometry", ("warnings", "errors", "ai_indicators")
+        )
+        assert denominators == {HUMAN: 2, MACHINE: 3}
+        by_flag = {(row["kind"], row["flag"]): row for row in rows}
+
+        assert by_flag[("errors", "shared")]["human"] == 2
+        assert by_flag[("errors", "shared")]["machine"] == 1
+        assert by_flag[("errors", "shared")]["human_rate"] == pytest.approx(1.0)
+        assert by_flag[("errors", "shared")]["machine_rate"] == pytest.approx(1 / 3)
+
+        # Fires in the machine class only; the duplicate in m1 counts once and the failed m4 not at all.
+        machine_only = by_flag[("errors", "machine_only")]
+        assert (machine_only["human"], machine_only["machine"]) == (0, 1)
+        assert machine_only["human_rate"] == pytest.approx(0.0)
+        assert machine_only["machine_rate"] == pytest.approx(1 / 3)
+
+        # The same name under a different kind is its own row.
+        assert (
+            by_flag[("ai_indicators", "machine_only")]["human"],
+            by_flag[("ai_indicators", "machine_only")]["machine"],
+        ) == (0, 1)
+
+    def test_rows_sort_by_total_then_kind_then_flag(self):
+        _, rows = metrics.flag_fire_rates(self.records(), "stylometry", ("warnings", "errors", "ai_indicators"))
+        assert [(row["kind"], row["flag"], row["total"]) for row in rows] == [
+            ("errors", "shared", 3),
+            ("ai_indicators", "machine_only", 1),
+            ("errors", "machine_only", 1),
+            ("warnings", "shared", 1),
+        ]
+
+    def test_report_renders_the_table(self):
+        markdown = report.build_report(
+            self.records(),
+            corpus_info={"name": "fixture", "description": "6 documents", "manifest": "n/a"},
+            thresholds={},
+            methods=["stylometry"],
+        )
+        assert "## Stylometry flag fire rates by class" in markdown
+        assert "| `errors: shared` | 2/2 | 100.00% | 1/3 | 33.33% |" in markdown
+        assert "| `errors: machine_only` | 0/2 | 0.00% | 1/3 | 33.33% |" in markdown
+
+
 class TestDescriptiveStatistics:
     def test_describe_exact_values(self):
         stats = metrics.describe([1.0, 2.0, 3.0, 4.0])
@@ -358,6 +476,17 @@ class TestReportRendering:
         assert "lower in machine" in markdown
         assert "## Stylometry FPR at declared TPR targets" in markdown
         assert "at least two named AI indicators" in markdown
+
+    def test_report_sweeps_perplexity_statistics_and_states_exclusions(self):
+        markdown = self.build()
+        assert "## Perplexity statistics swept independently" in markdown
+        assert "**and** burstiness is below" in markdown
+        # m1's null burstiness and m2's failed analysis are both excluded, not counted as negatives.
+        assert "### `doc_burstiness`" in markdown
+        assert "Swept over 1 of 2 scored documents; 1 excluded for a `null` value (0 human / 1 machine)." in markdown
+        assert "Swept over 2 of 2 scored documents; 0 excluded for a `null` value (0 human / 0 machine)." in markdown
+        # doc_ppl <= 12.00 flags m1 and not h1.
+        assert "| 12.00 | 1.0000 | 0.0000 | 1 | 0 | 0 | 1 |" in markdown
 
     def test_report_is_deterministic(self):
         assert self.build() == self.build()
