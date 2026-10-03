@@ -117,32 +117,55 @@ def evaluate_boolean_decision(
     }
 
 
-def threshold_sweep(scored_pairs: Sequence[Tuple[str, float]]) -> List[Dict[str, Any]]:
-    """Sweep every distinct score as a ``score >= threshold`` cut point.
+#: Sweep directions. ``">="`` flags a document as machine when its score is at or
+#: above the threshold; ``"<="`` when it is at or below - the rule for a
+#: statistic, such as GPT-2 perplexity, that runs *lower* on machine text.
+AT_OR_ABOVE = ">="
+AT_OR_BELOW = "<="
+DIRECTIONS = (AT_OR_ABOVE, AT_OR_BELOW)
 
-    Only thresholds that actually occur in the sample are candidates, which is
-    what makes the sweep exactly reproducible: it never interpolates between
-    observed scores.
+
+def _check_direction(direction: str) -> None:
+    if direction not in DIRECTIONS:
+        raise ValueError(f"Unknown sweep direction: {direction!r} (expected one of {DIRECTIONS})")
+
+
+def threshold_sweep(scored_pairs: Sequence[Tuple[str, float]], direction: str = AT_OR_ABOVE) -> List[Dict[str, Any]]:
+    """Sweep every distinct score as a cut point, in ascending threshold order.
+
+    ``direction`` is the rule a cut point applies: ``score >= threshold`` by
+    default, or ``score <= threshold``. Only thresholds that actually occur in
+    the sample are candidates, which is what makes the sweep exactly
+    reproducible: it never interpolates between observed scores.
     """
+    _check_direction(direction)
     thresholds = sorted({score for _, score in scored_pairs})
     sweep = []
     for threshold in thresholds:
-        matrix = confusion_matrix([(label, score >= threshold) for label, score in scored_pairs])
+        if direction == AT_OR_ABOVE:
+            predictions = [(label, score >= threshold) for label, score in scored_pairs]
+        else:
+            predictions = [(label, score <= threshold) for label, score in scored_pairs]
+        matrix = confusion_matrix(predictions)
         sweep.append({"threshold": threshold, "confusion_matrix": matrix, "metrics": classification_metrics(matrix)})
     return sweep
 
 
-def fpr_at_tpr_targets(scored_pairs: Sequence[Tuple[str, float]], targets: Sequence[float]) -> List[Dict[str, Any]]:
+def fpr_at_tpr_targets(
+    scored_pairs: Sequence[Tuple[str, float]], targets: Sequence[float], direction: str = AT_OR_ABOVE
+) -> List[Dict[str, Any]]:
     """False positive rate at the cheapest threshold reaching each TPR target.
 
-    "Cheapest" is the highest threshold whose true positive rate is still at or
-    above the target, since a higher cut point can only lower the FPR. The
-    achieved TPR is reported alongside the target: the scores here are coarse
-    and discrete, so an exact 0.90 is generally unreachable and quoting the
-    target alone would overstate what was measured. ``threshold`` is None when
-    no cut point reaches the target at all.
+    "Cheapest" is the strictest threshold whose true positive rate is still at
+    or above the target, since a stricter cut point can only lower the FPR:
+    the highest threshold for ``>=``, the lowest for ``<=``. The achieved TPR
+    is reported alongside the target: the scores here are coarse and discrete,
+    so an exact 0.90 is generally unreachable and quoting the target alone
+    would overstate what was measured. ``threshold`` is None when no cut point
+    reaches the target at all.
     """
-    sweep = threshold_sweep(scored_pairs)
+    sweep = threshold_sweep(scored_pairs, direction)
+    strictest = max if direction == AT_OR_ABOVE else min
     results = []
     for target in targets:
         reaching = [
@@ -151,7 +174,7 @@ def fpr_at_tpr_targets(scored_pairs: Sequence[Tuple[str, float]], targets: Seque
         if not reaching:
             results.append({"target_tpr": target, "threshold": None, "achieved_tpr": None, "fpr": None})
             continue
-        best = max(reaching, key=lambda point: point["threshold"])
+        best = strictest(reaching, key=lambda point: point["threshold"])
         results.append(
             {
                 "target_tpr": target,
@@ -162,6 +185,42 @@ def fpr_at_tpr_targets(scored_pairs: Sequence[Tuple[str, float]], targets: Seque
             }
         )
     return results
+
+
+def flag_fire_rates(
+    records: Sequence[Dict[str, Any]], method: str, kinds: Sequence[str]
+) -> Tuple[Dict[str, int], List[Dict[str, Any]]]:
+    """How many scored documents of each class each listed flag fired on.
+
+    ``kinds`` names the list-valued keys of a scored method's output to count
+    (for stylometry: ``warnings``, ``errors``, ``ai_indicators``). A flag
+    repeated within one document counts once. Returns the scored per-class
+    document counts - the denominators - and one row per ``(kind, flag)``,
+    sorted by total fire count descending, then kind, then flag.
+    """
+    scored, _ = partition_outcomes(records, method)
+    denominators = label_counts(scored)
+    counts: Dict[Tuple[str, str], Dict[str, int]] = {}
+    for record in scored:
+        for kind in kinds:
+            for flag in {str(entry) for entry in record[method].get(kind) or []}:
+                counts.setdefault((kind, flag), dict.fromkeys(LABELS, 0))[record["label"]] += 1
+
+    rows = []
+    for (kind, flag), by_label in counts.items():
+        rows.append(
+            {
+                "kind": kind,
+                "flag": flag,
+                "human": by_label[HUMAN],
+                "machine": by_label[MACHINE],
+                "total": by_label[HUMAN] + by_label[MACHINE],
+                "human_rate": _ratio(by_label[HUMAN], denominators[HUMAN]),
+                "machine_rate": _ratio(by_label[MACHINE], denominators[MACHINE]),
+            }
+        )
+    rows.sort(key=lambda row: (-row["total"], row["kind"], row["flag"]))
+    return denominators, rows
 
 
 def describe(values: Sequence[float]) -> Dict[str, Optional[float]]:
