@@ -12,17 +12,33 @@ from unittest.mock import Mock
 import pytest
 
 from benchmarks import run_benchmark, runner
+from server.config import load_config
 
 FIXTURE_CORPUS = Path(__file__).parent / "data" / "tiny_benchmark_corpus.jsonl"
+
+# No fixture document reaches the shipped 0.7 confidence threshold, so the tests lower it to the
+# score the fixture's one high-scoring document (pair 0039, machine) actually has.
+FIXTURE_CONFIDENCE_THRESHOLD = 0.2
+
+
+def _run_cli(out_dir):
+    def load_low_threshold_config():
+        config = load_config()
+        config["stylometry"]["thresholds"]["ai_confidence_threshold"] = FIXTURE_CONFIDENCE_THRESHOLD
+        return config
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(run_benchmark, "load_config", load_low_threshold_config)
+        return run_benchmark.main(
+            ["--corpus", str(FIXTURE_CORPUS), "--out-dir", str(out_dir), "--analyses", "stylometry", "--quiet"]
+        )
 
 
 @pytest.fixture(scope="module")
 def scored_run(tmp_path_factory):
     """Run the actual CLI over the tiny fixture, stylometry only."""
     out_dir = tmp_path_factory.mktemp("benchmark-run")
-    exit_code = run_benchmark.main(
-        ["--corpus", str(FIXTURE_CORPUS), "--out-dir", str(out_dir), "--analyses", "stylometry", "--quiet"]
-    )
+    exit_code = _run_cli(out_dir)
     assert exit_code == 0
     return out_dir
 
@@ -55,13 +71,18 @@ class TestRunnerOverTinyCorpus:
             assert stylometry["features"]["avg_sentence_len"] > 0
             assert "ttr" in stylometry["z_scores"]
 
-    def test_recorded_values_equal_the_analyzer_s_own_output(self, scored_run, ai_detection_analyzer):
+    def test_recorded_values_equal_the_analyzer_s_own_output(self, scored_run, ai_detection_analyzer, monkeypatch):
         """The runner must report what the analyzer said, not a value of its own.
 
         Shape assertions alone pass on a runner that hardcodes its answers, so
         this compares every recorded field against a direct analyzer call on the
         same text.
         """
+        monkeypatch.setitem(
+            ai_detection_analyzer.config["stylometry"]["thresholds"],
+            "ai_confidence_threshold",
+            FIXTURE_CONFIDENCE_THRESHOLD,
+        )
         corpus = {entry["doc_id"]: entry for entry in runner.load_corpus(FIXTURE_CORPUS)}
         records = [json.loads(line) for line in (scored_run / "scores.jsonl").read_text().strip().split("\n")]
 
@@ -99,12 +120,7 @@ class TestRunnerOverTinyCorpus:
 
     def test_rerunning_reproduces_both_artifacts(self, scored_run, tmp_path):
         second = tmp_path / "second"
-        assert (
-            run_benchmark.main(
-                ["--corpus", str(FIXTURE_CORPUS), "--out-dir", str(second), "--analyses", "stylometry", "--quiet"]
-            )
-            == 0
-        )
+        assert _run_cli(second) == 0
         assert (second / "scores.jsonl").read_bytes() == (scored_run / "scores.jsonl").read_bytes()
         assert (second / "report.md").read_bytes() == (scored_run / "report.md").read_bytes()
 

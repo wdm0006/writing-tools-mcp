@@ -504,6 +504,35 @@ class TestStatisticalFunctions:
         assert "low_hapax" in flags["ai_indicators"]
         assert len(flags["reasons"]) > 0
 
+    @pytest.mark.parametrize(
+        "z_scores, tags",
+        [
+            ({"pos_adj": 2.5}, ["ADJ: 2.50"]),
+            (
+                {"pos_adj": 2.5, "pos_noun": -2.4, "posbi_adj_noun": 3.1, "posbi_det_noun": -2.2},
+                ["ADJ: 2.50", "NOUN: -2.40", "ADJ_NOUN: 3.10", "DET_NOUN: -2.20"],
+            ),
+        ],
+    )
+    def test_pos_anomalies_add_one_confidence_increment(self, z_scores, tags):
+        thresholds = {"warning_z": 2.0, "error_z": 3.0, "ai_confidence_threshold": 0.7}
+
+        flags = generate_flags(z_scores, {}, thresholds)
+
+        assert flags["confidence_score"] == pytest.approx(0.1)
+        assert flags["ai_indicators"] == ["pos_anomalies"]
+        reason = next(r for r in flags["reasons"] if r.startswith("Unusual POS ratios"))
+        for tag in tags:
+            assert tag in reason
+
+    def test_non_anomalous_pos_adds_no_confidence(self):
+        thresholds = {"warning_z": 2.0, "error_z": 3.0, "ai_confidence_threshold": 0.7}
+
+        flags = generate_flags({"pos_adj": 1.9, "posbi_adj_noun": -1.0}, {}, thresholds)
+
+        assert flags["confidence_score"] == 0.0
+        assert "pos_anomalies" not in flags["ai_indicators"]
+
     def test_calculate_sentence_z_scores(self):
         """Test sentence-level z-score calculation."""
         sentence_positions = [

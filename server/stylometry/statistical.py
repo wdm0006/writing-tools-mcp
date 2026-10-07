@@ -267,10 +267,10 @@ def generate_flags(
         if feature.startswith(("pos_", "posbi_")) and abs(z_score) > warning_threshold:
             pos_tag = feature.split("_", 1)[1].upper()
             pos_anomalies.append(f"{pos_tag}: {z_score:.2f}")
-            confidence_score += 0.1
 
     if pos_anomalies:
         ai_indicators.append("pos_anomalies")
+        confidence_score += 0.1
         reasons.append(f"Unusual POS ratios ({', '.join(pos_anomalies)})")
 
     # 6. Function word ratio anomalies
