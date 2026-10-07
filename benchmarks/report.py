@@ -215,6 +215,7 @@ def build_report(
     if "stylometry" in methods:
         lines += _sweep_section(records, tpr_targets)
         lines += _fire_rate_section(records)
+        lines += _indicator_section(records)
 
     lines += ["## Per-feature class summaries", ""]
     if "stylometry" in methods:
@@ -424,6 +425,45 @@ def _fire_rate_section(records: Sequence[Dict[str, Any]]) -> List[str]:
             f"| `{row['kind']}: {row['flag']}` | {row['human']}/{denominators[metrics.HUMAN]} "
             f"| {_pct(row['human_rate'])} | {row['machine']}/{denominators[metrics.MACHINE]} "
             f"| {_pct(row['machine_rate'])} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _indicator_section(records: Sequence[Dict[str, Any]]) -> List[str]:
+    denominators, rows = metrics.indicator_separation(records)
+    lines = [
+        "## Stylometry AI indicators: per-indicator separation",
+        "",
+        "For each `ai_indicators` entry seen: machine TPR (share of scored machine documents it "
+        "fired on), human FPR (share of scored human documents), and TPR minus FPR. An indicator "
+        "with a difference near zero or negative does not separate the classes in this corpus.",
+        "",
+        f"Denominators: {denominators[metrics.HUMAN]} scored human, "
+        f"{denominators[metrics.MACHINE]} scored machine documents.",
+        "",
+        "| indicator | machine | machine TPR | human | human FPR | TPR - FPR |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for row in rows:
+        lines.append(
+            f"| `{row['indicator']}` | {row['machine']}/{denominators[metrics.MACHINE]} | {_pct(row['tpr'])} "
+            f"| {row['human']}/{denominators[metrics.HUMAN]} | {_pct(row['fpr'])} | {_num(row['difference'])} |"
+        )
+    lines += [
+        "",
+        "## Stylometry confidence score by class",
+        "",
+        "Distribution of `confidence_score` per class. The median is shown beside the mean because "
+        "the two can point in different directions.",
+        "",
+        "| class | n | mean | median | min | max |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for label, stats in metrics.confidence_by_class(records).items():
+        lines.append(
+            f"| {label} | {stats['n']} | {_num(stats['mean'])} | {_num(stats['median'])} "
+            f"| {_num(stats['min'])} | {_num(stats['max'])} |"
         )
     lines.append("")
     return lines

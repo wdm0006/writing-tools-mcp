@@ -642,6 +642,30 @@ Denominators: 110 scored human, 110 scored machine documents.
 | `ai_indicators: uniform_sentences` | 0/110 | 0.00% | 1/110 | 0.91% |
 | `errors: pos_adv` | 0/110 | 0.00% | 1/110 | 0.91% |
 
+## Stylometry AI indicators: per-indicator separation
+
+For each `ai_indicators` entry seen: machine TPR (share of scored machine documents it fired on), human FPR (share of scored human documents), and TPR minus FPR. An indicator with a difference near zero or negative does not separate the classes in this corpus.
+
+Denominators: 110 scored human, 110 scored machine documents.
+
+| indicator | machine | machine TPR | human | human FPR | TPR - FPR |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `low_ttr` | 12/110 | 10.91% | 0/110 | 0.00% | 0.1091 |
+| `function_word_anomaly` | 21/110 | 19.09% | 13/110 | 11.82% | 0.0727 |
+| `low_hapax` | 3/110 | 2.73% | 0/110 | 0.00% | 0.0273 |
+| `unusual_sentence_length` | 4/110 | 3.64% | 2/110 | 1.82% | 0.0182 |
+| `uniform_sentences` | 1/110 | 0.91% | 0/110 | 0.00% | 0.0091 |
+| `pos_anomalies` | 98/110 | 89.09% | 108/110 | 98.18% | -0.0909 |
+
+## Stylometry confidence score by class
+
+Distribution of `confidence_score` per class. The median is shown beside the mean because the two can point in different directions.
+
+| class | n | mean | median | min | max |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| human | 110 | 0.3027 | 0.3000 | 0.0000 | 0.7000 |
+| machine | 110 | 0.2959 | 0.2000 | 0.0000 | 1.0000 |
+
 ## Per-feature class summaries
 
 ### Stylometric features (raw values)
