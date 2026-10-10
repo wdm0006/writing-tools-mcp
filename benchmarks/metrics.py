@@ -223,6 +223,45 @@ def flag_fire_rates(
     return denominators, rows
 
 
+def indicator_separation(
+    records: Sequence[Dict[str, Any]], method: str = "stylometry"
+) -> Tuple[Dict[str, int], List[Dict[str, Any]]]:
+    """Per ``ai_indicators`` entry: machine TPR, human FPR and their difference.
+
+    A document counts once per indicator however often it repeats. Rows are
+    sorted by difference descending (undefined last), then indicator name.
+    """
+    denominators, rows = flag_fire_rates(records, method, ("ai_indicators",))
+    result = []
+    for row in rows:
+        tpr, fpr = row["machine_rate"], row["human_rate"]
+        result.append(
+            {
+                "indicator": row["flag"],
+                "machine": row["machine"],
+                "human": row["human"],
+                "tpr": tpr,
+                "fpr": fpr,
+                "difference": None if tpr is None or fpr is None else tpr - fpr,
+            }
+        )
+    result.sort(key=lambda r: (r["difference"] is None, -(r["difference"] or 0.0), r["indicator"]))
+    return denominators, result
+
+
+def confidence_by_class(
+    records: Sequence[Dict[str, Any]], method: str = "stylometry"
+) -> Dict[str, Dict[str, Optional[float]]]:
+    """``describe`` of ``confidence_score`` over the scored documents of each class."""
+    scored, _ = partition_outcomes(records, method)
+    values: Dict[str, List[float]] = {label: [] for label in LABELS}
+    for record in scored:
+        score = record[method].get("confidence_score")
+        if isinstance(score, (int, float)) and not isinstance(score, bool) and math.isfinite(score):
+            values[record["label"]].append(float(score))
+    return {label: describe(values[label]) for label in LABELS}
+
+
 def describe(values: Sequence[float]) -> Dict[str, Optional[float]]:
     """Count, mean, sample standard deviation, median, min and max."""
     numbers = list(values)

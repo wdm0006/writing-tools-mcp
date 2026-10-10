@@ -525,3 +525,61 @@ class TestNullValueCounts:
         # Without this note the key would simply be absent from the table, which
         # reads identically to it never having been computed.
         assert "`char_ngram_similarity` (2 of 2)" in markdown
+
+
+class TestIndicatorSeparation:
+    @staticmethod
+    def records():
+        def doc(label, doc_id, confidence, indicators):
+            return make_record(
+                doc_id, label, stylometry={**ok_stylometry(False, confidence), "ai_indicators": list(indicators)}
+            )
+
+        return [
+            doc(HUMAN, "h1", 0.3, ["pos_anomalies", "pos_anomalies"]),
+            doc(HUMAN, "h2", 0.3, ["pos_anomalies", "low_ttr"]),
+            doc(HUMAN, "h3", 0.6, ["pos_anomalies"]),
+            doc(HUMAN, "h4", 0.0, []),
+            doc(MACHINE, "m1", 0.1, ["pos_anomalies", "low_ttr"]),
+            doc(MACHINE, "m2", 0.3, ["low_ttr"]),
+            doc(MACHINE, "m3", 0.2, []),
+            doc(MACHINE, "m4", 0.7, ["low_ttr"]),
+            make_record("m5", MACHINE, stylometry={"ok": False, "error": "boom", "confidence_score": 0.99}),
+        ]
+
+    def test_per_indicator_counts_and_rates(self):
+        denominators, rows = metrics.indicator_separation(self.records())
+        assert denominators == {HUMAN: 4, MACHINE: 4}
+        by_name = {row["indicator"]: row for row in rows}
+        pos, ttr = by_name["pos_anomalies"], by_name["low_ttr"]
+        assert (pos["human"], pos["machine"]) == (3, 1)
+        assert (pos["fpr"], pos["tpr"]) == (pytest.approx(0.75), pytest.approx(0.25))
+        assert pos["difference"] == pytest.approx(-0.5)
+        assert (ttr["human"], ttr["machine"]) == (1, 3)
+        assert (ttr["fpr"], ttr["tpr"]) == (pytest.approx(0.25), pytest.approx(0.75))
+        assert ttr["difference"] == pytest.approx(0.5)
+        assert [row["indicator"] for row in rows] == ["low_ttr", "pos_anomalies"]
+
+    def test_confidence_by_class(self):
+        stats = metrics.confidence_by_class(self.records())
+        assert stats[HUMAN]["n"] == 4
+        assert stats[HUMAN]["mean"] == pytest.approx(0.3)
+        assert stats[HUMAN]["median"] == pytest.approx(0.3)
+        assert (stats[HUMAN]["min"], stats[HUMAN]["max"]) == (0.0, 0.6)
+        # The failed m5 (0.99) is excluded.
+        assert stats[MACHINE]["n"] == 4
+        assert stats[MACHINE]["mean"] == pytest.approx(0.325)
+        assert stats[MACHINE]["median"] == pytest.approx(0.25)
+        assert (stats[MACHINE]["min"], stats[MACHINE]["max"]) == (0.1, 0.7)
+
+    def test_report_renders_both_sections(self):
+        markdown = report.build_report(
+            self.records(),
+            corpus_info={"name": "fixture", "description": "9 documents", "manifest": "n/a"},
+            thresholds={},
+            methods=["stylometry"],
+        )
+        assert "| `pos_anomalies` | 1/4 | 25.00% | 3/4 | 75.00% | -0.5000 |" in markdown
+        assert "| `low_ttr` | 3/4 | 75.00% | 1/4 | 25.00% | 0.5000 |" in markdown
+        assert "| human | 4 | 0.3000 | 0.3000 | 0.0000 | 0.6000 |" in markdown
+        assert "| machine | 4 | 0.3250 | 0.2500 | 0.1000 | 0.7000 |" in markdown
