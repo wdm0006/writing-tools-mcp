@@ -1,6 +1,7 @@
 """GPT-2 model management for perplexity analysis."""
 
 import logging
+from typing import Any
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizerBase
 
@@ -48,15 +49,14 @@ class GPT2Manager:
             model_name = self.config.get("model_name", "gpt2")
 
             self._tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self._model = AutoModelForCausalLM.from_pretrained(model_name)
+            # Typed as Any: transformers' stubs for eval()/to() confuse mypy.
+            model: Any = AutoModelForCausalLM.from_pretrained(model_name)
 
             # Configure model
-            self._model.eval()
+            model.eval()
             if self.config.get("device") == "cpu":
-                # transformers types Module.to via functools.wraps and mypy
-                # misaligns the wrapped signature here; "cpu" is valid at
-                # runtime. Remove the ignore if a transformers release fixes it.
-                self._model = self._model.to("cpu")  # type: ignore[arg-type]
+                model = model.to("cpu")
+            self._model = model
 
             # Add padding token if not present
             if self._tokenizer.pad_token is None:
