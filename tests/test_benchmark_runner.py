@@ -218,3 +218,41 @@ class TestCorpusLoading:
         path.write_text(json.dumps({"doc_id": "a", "label": "human"}) + "\n", encoding="utf-8")
         with pytest.raises(ValueError, match="missing required field 'text'"):
             runner.load_corpus(path)
+
+
+class TestPerplexityModelOverride:
+    def _run(self, tmp_path, monkeypatch, extra):
+        from server.analyzers.ai_detection import AIDetectionAnalyzer
+        from server.models.gpt2_manager import GPT2Manager
+
+        built = []
+        real_build = runner.build_analyzer
+
+        def capture(config=None):
+            analyzer = real_build(config)
+            built.append(analyzer)
+            return analyzer
+
+        monkeypatch.setattr(runner, "build_analyzer", capture)
+        monkeypatch.setattr(
+            GPT2Manager, "get_model_and_tokenizer", lambda self: (Mock(encode=lambda *a, **k: [1]), Mock(), self.config)
+        )
+        monkeypatch.setattr(AIDetectionAnalyzer, "_calculate_perplexity", lambda self, *a, **k: 30.0)
+        argv = ["--corpus", str(FIXTURE_CORPUS), "--out-dir", str(tmp_path), "--analyses", "perplexity", "--quiet"]
+        assert run_benchmark.main(argv + ["--limit", "2"] + extra) == 0
+        metadata = json.loads((tmp_path / "run_metadata.json").read_text())
+        return built[0].gpt2_manager.config["model_name"], metadata
+
+    def test_flag_reaches_manager_config_and_metadata(self, tmp_path, monkeypatch):
+        model_name, metadata = self._run(tmp_path, monkeypatch, ["--perplexity-model", "example/other-lm"])
+        assert model_name == "example/other-lm"
+        assert metadata["perplexity_model"] == "example/other-lm"
+
+    def test_default_keeps_configured_model(self, tmp_path, monkeypatch):
+        model_name, metadata = self._run(tmp_path, monkeypatch, [])
+        assert model_name == load_config()["perplexity"]["model_name"] == "gpt2"
+        assert metadata["perplexity_model"] == "gpt2"
+
+    def test_metadata_has_no_model_when_perplexity_not_run(self, scored_run):
+        metadata = json.loads((scored_run / "run_metadata.json").read_text())
+        assert metadata["perplexity_model"] is None
