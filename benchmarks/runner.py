@@ -54,6 +54,11 @@ def load_corpus(path: Path) -> List[Dict[str, Any]]:
     return records
 
 
+def count_words(text: str) -> int:
+    """Whitespace-split word count, the same rule as the server's ``word_count`` tool."""
+    return len(text.split())
+
+
 def build_analyzer(config: Optional[Dict[str, Any]] = None) -> AIDetectionAnalyzer:
     """Construct the analyzer exactly as the server does, models included.
 
@@ -153,6 +158,7 @@ def score_records(
             "doc_id": record["doc_id"],
             "label": record["label"],
             "source": record.get("source", {}),
+            "word_count": count_words(text),
         }
         for analysis in analyses:
             try:

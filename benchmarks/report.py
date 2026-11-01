@@ -216,6 +216,7 @@ def build_report(
         lines += _sweep_section(records, tpr_targets)
         lines += _fire_rate_section(records)
         lines += _indicator_section(records)
+        lines += _length_bucket_section(records)
 
     lines += ["## Per-feature class summaries", ""]
     if "stylometry" in methods:
@@ -464,6 +465,44 @@ def _indicator_section(records: Sequence[Dict[str, Any]]) -> List[str]:
         lines.append(
             f"| {label} | {stats['n']} | {_num(stats['mean'])} | {_num(stats['median'])} "
             f"| {_num(stats['min'])} | {_num(stats['max'])} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _length_bucket_section(records: Sequence[Dict[str, Any]]) -> List[str]:
+    result = metrics.length_bucket_separation(records)
+    lines = [
+        "## Stylometry separation within word-count terciles",
+        "",
+        "`ttr` and `hapax_legomena_rate` fall with document length, so a class difference in them "
+        "can be a length difference. Scored documents are split into terciles of word count "
+        "(whitespace-split); each row gives class medians (`n/a` where a class has no value) and "
+        "per-class `low_ttr` / `low_hapax` indicator fire counts inside that bucket. A feature that "
+        "separates the classes in every bucket is not explained by length alone.",
+        "",
+    ]
+    if result["n_missing_word_count"]:
+        lines += [f"{result['n_missing_word_count']} scored documents carry no `word_count` and are excluded.", ""]
+    if not any(sum(b["n"].values()) for b in result["buckets"]):
+        return lines + ["No scored document carries a `word_count`; no buckets to report.", ""]
+    lines += [
+        "| words | n human | n machine | ttr human | ttr machine | hapax human | hapax machine "
+        "| low_ttr human | low_ttr machine | low_hapax human | low_hapax machine |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for bucket in result["buckets"]:
+        if bucket["min_words"] is None:
+            span = "(empty)"
+        else:
+            span = f"{bucket['min_words']}-{bucket['max_words']}"
+        med, fires, n = bucket["medians"], bucket["fires"], bucket["n"]
+        lines.append(
+            f"| {span} | {n[metrics.HUMAN]} | {n[metrics.MACHINE]} "
+            f"| {_num(med['ttr'][metrics.HUMAN])} | {_num(med['ttr'][metrics.MACHINE])} "
+            f"| {_num(med['hapax_legomena_rate'][metrics.HUMAN])} | {_num(med['hapax_legomena_rate'][metrics.MACHINE])} "
+            f"| {fires['low_ttr'][metrics.HUMAN]} | {fires['low_ttr'][metrics.MACHINE]} "
+            f"| {fires['low_hapax'][metrics.HUMAN]} | {fires['low_hapax'][metrics.MACHINE]} |"
         )
     lines.append("")
     return lines

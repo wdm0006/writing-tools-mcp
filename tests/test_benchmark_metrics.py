@@ -583,3 +583,84 @@ class TestIndicatorSeparation:
         assert "| `low_ttr` | 3/4 | 75.00% | 1/4 | 25.00% | 0.5000 |" in markdown
         assert "| human | 4 | 0.3000 | 0.3000 | 0.0000 | 0.6000 |" in markdown
         assert "| machine | 4 | 0.3250 | 0.2500 | 0.1000 | 0.7000 |" in markdown
+
+
+class TestLengthBuckets:
+    @staticmethod
+    def doc(doc_id, label, words, ttr, indicators=()):
+        stylometry = {
+            **ok_stylometry(False, 0.0, features={"ttr": ttr, "hapax_legomena_rate": ttr + 0.2}),
+            "ai_indicators": list(indicators),
+        }
+        record = make_record(doc_id, label, stylometry=stylometry)
+        if words is not None:
+            record["word_count"] = words
+        return record
+
+    def records(self):
+        return [
+            # Bucket 10-30: classes identical, no separation.
+            self.doc("h1", HUMAN, 10, 0.5),
+            self.doc("m1", MACHINE, 20, 0.5),
+            self.doc("m2", MACHINE, 30, 0.5),
+            # Bucket 40-60: machine lower and fires low_ttr.
+            self.doc("h2", HUMAN, 40, 0.6),
+            self.doc("h3", HUMAN, 50, 0.8),
+            self.doc("m3", MACHINE, 60, 0.4, ["low_ttr", "low_hapax"]),
+            # Bucket 70-90: machine only.
+            self.doc("m4", MACHINE, 70, 0.3, ["low_ttr"]),
+            self.doc("m5", MACHINE, 80, 0.2, ["low_ttr"]),
+            self.doc("m6", MACHINE, 90, 0.4),
+        ]
+
+    def test_edges_are_terciles_of_observed_counts(self):
+        assert metrics.length_bucket_edges([90, 10, 50, 20, 30, 40, 60, 70, 80]) == [30, 60]
+        assert metrics.length_bucket_edges([]) == []
+
+    def test_exact_bucket_values(self):
+        result = metrics.length_bucket_separation(self.records())
+        low, mid, high = result["buckets"]
+
+        assert result["edges"] == [30, 60]
+        assert (low["min_words"], low["max_words"]) == (10, 30)
+        assert low["n"] == {HUMAN: 1, MACHINE: 2}
+        assert low["medians"]["ttr"] == {HUMAN: 0.5, MACHINE: 0.5}
+        assert low["fires"]["low_ttr"] == {HUMAN: 0, MACHINE: 0}
+
+        assert mid["n"] == {HUMAN: 2, MACHINE: 1}
+        assert mid["medians"]["ttr"] == {HUMAN: pytest.approx(0.7), MACHINE: 0.4}
+        assert mid["medians"]["hapax_legomena_rate"] == {HUMAN: pytest.approx(0.9), MACHINE: pytest.approx(0.6)}
+        assert mid["fires"]["low_ttr"] == {HUMAN: 0, MACHINE: 1}
+        assert mid["fires"]["low_hapax"] == {HUMAN: 0, MACHINE: 1}
+
+        assert high["n"] == {HUMAN: 0, MACHINE: 3}
+        assert high["medians"]["ttr"] == {HUMAN: None, MACHINE: 0.3}
+        assert high["fires"]["low_ttr"] == {HUMAN: 0, MACHINE: 2}
+
+    def test_zero_separation_bucket_differs_from_separating_bucket(self):
+        low, mid, _ = metrics.length_bucket_separation(self.records())["buckets"]
+        gap = lambda b: b["medians"]["ttr"][HUMAN] - b["medians"]["ttr"][MACHINE]  # noqa: E731
+        assert gap(low) == 0
+        assert gap(mid) == pytest.approx(0.3)
+
+    def test_tied_lengths_leave_empty_buckets_and_missing_counts_are_excluded(self):
+        records = [self.doc(f"d{i}", HUMAN if i % 2 else MACHINE, 100, 0.5) for i in range(6)]
+        records.append(self.doc("nolen", HUMAN, None, 0.5))
+        result = metrics.length_bucket_separation(records)
+
+        assert result["n_missing_word_count"] == 1
+        assert [sum(b["n"].values()) for b in result["buckets"]] == [6, 0, 0]
+        assert result["buckets"][1]["min_words"] is None
+        assert result["buckets"][1]["medians"]["ttr"] == {HUMAN: None, MACHINE: None}
+
+    def test_report_renders_rows_and_explicit_empty_bucket(self):
+        info = {"name": "fixture", "description": "x", "manifest": "n/a"}
+        markdown = report.build_report(self.records(), info, {}, ["stylometry"])
+        assert "## Stylometry separation within word-count terciles" in markdown
+        assert "| 10-30 | 1 | 2 | 0.5000 | 0.5000 | 0.7000 | 0.7000 | 0 | 0 | 0 | 0 |" in markdown
+        assert "| 40-60 | 2 | 1 | 0.7000 | 0.4000 | 0.9000 | 0.6000 | 0 | 1 | 0 | 1 |" in markdown
+        assert "| 70-90 | 0 | 3 | n/a | 0.3000 |" in markdown
+
+        tied = [self.doc(f"d{i}", HUMAN, 100, 0.5) for i in range(3)]
+        markdown = report.build_report(tied, info, {}, ["stylometry"])
+        assert "| (empty) | 0 | 0 | n/a | n/a |" in markdown
