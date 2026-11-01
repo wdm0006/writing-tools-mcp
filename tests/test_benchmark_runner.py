@@ -62,6 +62,17 @@ class TestRunnerOverTinyCorpus:
             assert record["source"] == entry["source"]
             assert record["source"]["raid_id"]
 
+    def test_records_carry_exact_word_counts(self, scored_run):
+        records = [json.loads(line) for line in (scored_run / "scores.jsonl").read_text().strip().split("\n")]
+        assert {r["doc_id"]: r["word_count"] for r in records} == {
+            "raid-wiki-0001-human": 171,
+            "raid-wiki-0001-machine": 400,
+            "raid-wiki-0002-human": 176,
+            "raid-wiki-0002-machine": 393,
+            "raid-wiki-0039-human": 205,
+            "raid-wiki-0039-machine": 190,
+        }
+
     def test_records_carry_real_analyzer_output(self, scored_run):
         records = [json.loads(line) for line in (scored_run / "scores.jsonl").read_text().strip().split("\n")]
         for record in records:

@@ -666,6 +666,16 @@ Distribution of `confidence_score` per class. The median is shown beside the mea
 | human | 110 | 0.3027 | 0.3000 | 0.0000 | 0.7000 |
 | machine | 110 | 0.2959 | 0.2000 | 0.0000 | 1.0000 |
 
+## Stylometry separation within word-count terciles
+
+`ttr` and `hapax_legomena_rate` fall with document length, so a class difference in them can be a length difference. Scored documents are split into terciles of word count (whitespace-split); each row gives class medians (`n/a` where a class has no value) and per-class `low_ttr` / `low_hapax` indicator fire counts inside that bucket. A feature that separates the classes in every bucket is not explained by length alone.
+
+| words | n human | n machine | ttr human | ttr machine | hapax human | hapax machine | low_ttr human | low_ttr machine | low_hapax human | low_hapax machine |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 125-202 | 59 | 15 | 0.5910 | 0.5960 | 0.7570 | 0.7380 | 0 | 0 | 0 | 0 |
+| 203-283 | 48 | 25 | 0.5665 | 0.5110 | 0.7260 | 0.7000 | 0 | 2 | 0 | 0 |
+| 284-433 | 3 | 70 | 0.5470 | 0.4975 | 0.7340 | 0.7050 | 0 | 10 | 0 | 3 |
+
 ## Per-feature class summaries
 
 ### Stylometric features (raw values)

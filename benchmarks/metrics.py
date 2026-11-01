@@ -389,3 +389,71 @@ def feature_separation(records: Sequence[Dict[str, Any]], method: str, block: st
             }
         )
     return summaries
+
+
+def length_bucket_edges(word_counts: Sequence[int], n_buckets: int = 3) -> List[int]:
+    """Upper-inclusive word-count cutoffs splitting the corpus into near-equal-count buckets.
+
+    Returns ``n_buckets - 1`` edges; bucket ``i`` holds counts ``<= edges[i]`` not already in an
+    earlier bucket, and the last bucket holds the rest. Ties can leave a bucket empty.
+    """
+    ordered = sorted(word_counts)
+    if not ordered:
+        return []
+    return [ordered[max(math.ceil(len(ordered) * k / n_buckets) - 1, 0)] for k in range(1, n_buckets)]
+
+
+def length_bucket_separation(
+    records: Sequence[Dict[str, Any]],
+    method: str = "stylometry",
+    features: Sequence[str] = ("ttr", "hapax_legomena_rate"),
+    indicators: Sequence[str] = ("low_ttr", "low_hapax"),
+    n_buckets: int = 3,
+) -> Dict[str, Any]:
+    """Per word-count bucket: class counts, class feature medians and indicator fire counts.
+
+    Buckets are terciles (by default) of word count over the scored documents that carry a
+    ``word_count``; documents without one are counted in ``n_missing_word_count`` and left out.
+    Every bucket is returned, empty or not, with ``None`` medians where a class has no values.
+    """
+    scored, _ = partition_outcomes(records, method)
+    measured = [r for r in scored if isinstance(r.get("word_count"), int) and not isinstance(r["word_count"], bool)]
+    edges = length_bucket_edges([r["word_count"] for r in measured], n_buckets)
+
+    members: List[List[Dict[str, Any]]] = [[] for _ in range(n_buckets)]
+    for record in measured:
+        index = next((i for i, edge in enumerate(edges) if record["word_count"] <= edge), n_buckets - 1)
+        members[index].append(record)
+
+    buckets = []
+    for docs in members:
+        counts = [d["word_count"] for d in docs]
+        bucket: Dict[str, Any] = {
+            "min_words": min(counts) if counts else None,
+            "max_words": max(counts) if counts else None,
+            "n": label_counts(docs),
+            "medians": {},
+            "fires": {},
+        }
+        for feature in features:
+            bucket["medians"][feature] = {}
+            for label in LABELS:
+                values = [
+                    float(d[method]["features"][feature])
+                    for d in docs
+                    if d["label"] == label and _is_finite_number(d[method].get("features", {}).get(feature))
+                ]
+                bucket["medians"][feature][label] = describe(values)["median"]
+        for indicator in indicators:
+            bucket["fires"][indicator] = {
+                label: sum(
+                    1 for d in docs if d["label"] == label and indicator in (d[method].get("ai_indicators") or [])
+                )
+                for label in LABELS
+            }
+        buckets.append(bucket)
+    return {"edges": edges, "buckets": buckets, "n_missing_word_count": len(scored) - len(measured)}
+
+
+def _is_finite_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
