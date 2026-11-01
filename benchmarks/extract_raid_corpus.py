@@ -28,10 +28,10 @@ if str(REPO_ROOT) not in sys.path:
 RAID_REVISION = "865cac74188466cb0c3b7574a10204007b57a459"
 RAID_TRAIN_URL = f"https://huggingface.co/datasets/liamdugan/raid/resolve/{RAID_REVISION}/train.csv"
 
-#: Only unmodified Wikipedia-domain rows are eligible. RAID's adversarial
-#: attacks (homoglyph substitution, zero-width spaces, paraphrase, ...) are a
-#: deliberately harder, separate question and are out of scope here.
-DOMAIN = "wiki"
+#: Only unmodified rows are eligible. RAID's adversarial attacks (homoglyph
+#: substitution, zero-width spaces, paraphrase, ...) are a deliberately harder,
+#: separate question and are out of scope here.
+DEFAULT_DOMAIN = "wiki"
 ATTACK = "none"
 
 CSV_FIELDS = [
@@ -58,13 +58,13 @@ def eligible(text: str, min_words: int, max_words: int) -> bool:
     return min_words <= len(text.split()) <= max_words
 
 
-def iter_rows(handle):
+def iter_rows(handle, domain=DEFAULT_DOMAIN):
     # RAID generations routinely exceed csv's default 128 KiB field cap, which
     # aborts the parse mid-file with "field larger than field limit".
     csv.field_size_limit(sys.maxsize)
     reader = csv.DictReader(handle)
     for row in reader:
-        if row.get("domain") == DOMAIN and row.get("attack") == ATTACK:
+        if row.get("domain") == domain and row.get("attack") == ATTACK:
             yield row
 
 
@@ -92,12 +92,12 @@ def _open_source(source_csv, url):
     return io.TextIOWrapper(io.BufferedReader(_Reader(), 1 << 22), encoding="utf-8", newline="")
 
 
-def collect(handle, min_words: int, max_words: int):
+def collect(handle, min_words: int, max_words: int, domain: str = DEFAULT_DOMAIN):
     """Group eligible rows by source article."""
     humans = {}
     machines = {}
     seen_row_ids = set()
-    for row in iter_rows(handle):
+    for row in iter_rows(handle, domain):
         if row["id"] in seen_row_ids:
             continue
         seen_row_ids.add(row["id"])
@@ -188,14 +188,16 @@ def main(argv=None) -> int:
     parser.add_argument("--pairs", type=int, default=110, help="Human/machine document pairs to select")
     parser.add_argument("--min-words", type=int, default=120, help="Minimum whitespace-token count per document")
     parser.add_argument("--max-words", type=int, default=500, help="Maximum whitespace-token count per document")
-    parser.add_argument("--prefix", default="raid-wiki", help="doc_id prefix")
+    parser.add_argument("--domain", default=DEFAULT_DOMAIN, help="RAID domain (wiki, abstracts, news, ...)")
+    parser.add_argument("--prefix", default=None, help="doc_id prefix (default: raid-<domain>)")
     args = parser.parse_args(argv)
+    prefix = args.prefix or f"raid-{args.domain}"
 
     with _open_source(args.source_csv, args.url) as handle:
-        humans, machines = collect(handle, args.min_words, args.max_words)
+        humans, machines = collect(handle, args.min_words, args.max_words, args.domain)
 
     models, selected = select(humans, machines, args.pairs)
-    records = to_records(selected, args.prefix)
+    records = to_records(selected, prefix)
 
     args.out.mkdir(parents=True, exist_ok=True)
     corpus_path = args.out / "corpus.jsonl"
@@ -216,7 +218,7 @@ def main(argv=None) -> int:
             "url": args.url,
         },
         "filters": {
-            "domain": DOMAIN,
+            "domain": args.domain,
             "attack": ATTACK,
             "min_words": args.min_words,
             "max_words": args.max_words,

@@ -5,6 +5,7 @@ analysis is requested, so nothing downloads GPT-2; the perplexity path is
 exercised against a stub analyzer instead.
 """
 
+import hashlib
 import json
 from pathlib import Path
 from unittest.mock import Mock
@@ -15,6 +16,7 @@ from benchmarks import run_benchmark, runner
 from server.config import load_config
 
 FIXTURE_CORPUS = Path(__file__).parent / "data" / "tiny_benchmark_corpus.jsonl"
+CORPORA_DIR = Path(__file__).parent.parent / "benchmarks" / "corpora"
 
 # No fixture document reaches the shipped 0.7 confidence threshold, so the tests lower it to the
 # score the fixture's one high-scoring document (pair 0039, machine) actually has.
@@ -256,3 +258,28 @@ class TestPerplexityModelOverride:
     def test_metadata_has_no_model_when_perplexity_not_run(self, scored_run):
         metadata = json.loads((scored_run / "run_metadata.json").read_text())
         assert metadata["perplexity_model"] is None
+
+
+class TestCommittedCorpora:
+    @pytest.mark.parametrize("name, domain", [("raid_wiki_v1", "wiki"), ("raid_abstracts_v1", "abstracts")])
+    def test_corpus_loads_balanced_with_provenance(self, name, domain):
+        directory = CORPORA_DIR / name
+        corpus = runner.load_corpus(directory / "corpus.jsonl")
+        extraction = json.loads((directory / "extraction.json").read_text(encoding="utf-8"))
+
+        by_label = {label: [d for d in corpus if d["label"] == label] for label in ("human", "machine")}
+        assert len(by_label["human"]) == len(by_label["machine"]) == extraction["counts"]["human"] > 0
+        assert len({d["text"] for d in corpus}) == len(corpus)
+        assert {d["source"]["domain"] for d in corpus} == {domain}
+        assert {d["source"]["attack"] for d in corpus} == {"none"}
+        assert extraction["filters"]["domain"] == domain
+        assert hashlib.sha256((directory / "corpus.jsonl").read_bytes()).hexdigest() == extraction["corpus_sha256"]
+        for filename in ("MANIFEST.md", "LICENSE-AND-ATTRIBUTION.md"):
+            assert (directory / filename).is_file()
+
+    def test_pairs_share_a_source_article(self):
+        corpus = runner.load_corpus(CORPORA_DIR / "raid_abstracts_v1" / "corpus.jsonl")
+        pairs = {}
+        for doc in corpus:
+            pairs.setdefault(doc["doc_id"].rsplit("-", 1)[0], set()).add(doc["source"]["raid_source_id"])
+        assert all(len(ids) == 1 for ids in pairs.values())
