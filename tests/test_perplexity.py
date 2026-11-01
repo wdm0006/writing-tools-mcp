@@ -250,8 +250,23 @@ class TestUndefinedBurstiness:
         assert not any("acceptable perplexity" in reason for reason in result["flags"]["reasons"])
         assert not any("low burstiness" in reason.lower() for reason in result["flags"]["reasons"])
 
+    def test_low_ppl_with_high_burstiness_flags(self, analyzer):
+        """Burstiness above burstiness_min is not a veto: low perplexity alone sets the flag."""
+        result = self._run(analyzer, ["First one.", "Second one."], [10.0, 20.0])
+
+        assert result["doc_ppl"] == 15.0
+        assert result["doc_burstiness"] > 1.0
+        assert result["flags"]["high_ai_probability"] is True
+        assert "Low perplexity (15.00 < 50)" in result["flags"]["reasons"][0]
+        assert "low burstiness" not in result["flags"]["reasons"][0].lower()
+
+    def test_high_ppl_never_flags_regardless_of_burstiness(self, analyzer):
+        for perplexities in ([100.0, 100.2], [60.0, 200.0]):
+            result = self._run(analyzer, ["First one.", "Second one."], perplexities)
+            assert result["flags"]["high_ai_probability"] is False
+
     def test_two_scored_sentences_still_flag_on_thresholds(self, analyzer):
-        """The measurable case is unchanged: low perplexity plus low burstiness flags."""
+        """Low perplexity plus low burstiness flags and names both in the reason."""
         result = self._run(analyzer, ["First one.", "Second one."], [10.0, 10.5])
 
         assert result["doc_ppl"] == 10.25

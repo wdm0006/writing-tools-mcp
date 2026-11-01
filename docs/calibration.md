@@ -52,6 +52,8 @@ Documents: 220 total, 220 scored (110 human / 110 machine), 0 failed (0 human / 
 | false positive rate | 0.0000 |
 | specificity | 1.0000 |
 
+The recorded perplexity decisions above predate the current rule: `high_ai_probability` is now set by `doc_ppl < ppl_max` alone (burstiness only adds a reason), where the recorded run also required `doc_burstiness < burstiness_min`, which no document in this corpus satisfied. Replaying the current rule on the recorded measurements, with the shipped `ppl_max` of 25.0, flags 25 of 110 machine and 0 of 110 human documents (single corpus; no re-scoring).
+
 ## Single-measurement sweeps at target true-positive rates
 
 The shipped booleans each combine several conditions, so no single knob maps onto them. The tables below are deliberately simpler classifiers - one measurement, one cut - built from the same recorded scores. They answer the question a threshold change actually asks (what recall costs at a given false-positive rate) and are expected to disagree with the shipped decisions above. Sweeps run over the recorded measurements, never over the recorded boolean flags: the flags were decided at the thresholds in effect when the harness ran, so sweeping them would reproduce those thresholds and nothing else.
