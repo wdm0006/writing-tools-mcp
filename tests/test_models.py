@@ -60,8 +60,8 @@ class TestGPT2Manager:
         assert manager._model is None
         assert manager._tokenizer is None
 
-    @patch("server.models.gpt2_manager.GPT2Tokenizer.from_pretrained")
-    @patch("server.models.gpt2_manager.GPT2LMHeadModel.from_pretrained")
+    @patch("server.models.gpt2_manager.AutoTokenizer.from_pretrained")
+    @patch("server.models.gpt2_manager.AutoModelForCausalLM.from_pretrained")
     def test_get_model_and_tokenizer_success(self, mock_model, mock_tokenizer):
         """Test successful model and tokenizer loading."""
         mock_model_instance = MagicMock()

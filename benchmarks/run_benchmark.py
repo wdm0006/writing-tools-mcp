@@ -63,6 +63,11 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--baseline", default="brown_corpus", help="Stylometric baseline name")
     parser.add_argument("--limit", type=int, default=None, help="Score only the first N documents (for smoke runs)")
+    parser.add_argument(
+        "--perplexity-model",
+        default=None,
+        help="Causal LM overriding perplexity.model_name for this run (default: the configured model)",
+    )
     parser.add_argument("--quiet", action="store_true", help="Suppress per-document progress output")
     args = parser.parse_args(argv)
 
@@ -83,6 +88,8 @@ def main(argv=None) -> int:
     }
 
     config = load_config()
+    if args.perplexity_model:
+        config["perplexity"]["model_name"] = args.perplexity_model
     analyzer = runner.build_analyzer(config)
 
     def progress(index, doc_id):
@@ -113,6 +120,7 @@ def main(argv=None) -> int:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "corpus": _repo_relative(args.corpus),
         "baseline": args.baseline,
+        "perplexity_model": config["perplexity"]["model_name"] if "perplexity" in analyses else None,
         "analyses": analyses,
         "n_documents": len(scored),
         "library_versions": _library_versions(),

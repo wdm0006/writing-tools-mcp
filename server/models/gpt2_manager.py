@@ -1,8 +1,9 @@
 """GPT-2 model management for perplexity analysis."""
 
 import logging
+from typing import Any
 
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizerBase
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +13,8 @@ class GPT2Manager:
 
     def __init__(self, config: dict):
         self.config = config
-        self._model: GPT2LMHeadModel | None = None
-        self._tokenizer: GPT2Tokenizer | None = None
+        self._model: PreTrainedModel | None = None
+        self._tokenizer: PreTrainedTokenizerBase | None = None
         logger.info("GPT2Manager initialized (model will be loaded on first use)")
 
     def get_model_and_tokenizer(self):
@@ -47,16 +48,15 @@ class GPT2Manager:
             logger.info("Loading GPT-2 model for perplexity analysis...")
             model_name = self.config.get("model_name", "gpt2")
 
-            self._tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-            self._model = GPT2LMHeadModel.from_pretrained(model_name)
+            self._tokenizer = AutoTokenizer.from_pretrained(model_name)
+            # Typed as Any: transformers' stubs for eval()/to() confuse mypy.
+            model: Any = AutoModelForCausalLM.from_pretrained(model_name)
 
             # Configure model
-            self._model.eval()
+            model.eval()
             if self.config.get("device") == "cpu":
-                # transformers types Module.to via functools.wraps and mypy
-                # misaligns the wrapped signature here; "cpu" is valid at
-                # runtime. Remove the ignore if a transformers release fixes it.
-                self._model = self._model.to("cpu")  # type: ignore[arg-type]
+                model = model.to("cpu")
+            self._model = model
 
             # Add padding token if not present
             if self._tokenizer.pad_token is None:

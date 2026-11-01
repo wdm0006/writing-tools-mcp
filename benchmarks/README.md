@@ -25,7 +25,9 @@ no network access except the first-run GPT-2 download that
 `perplexity_analysis` performs anyway.
 
 Add `--analyses stylometry` to skip GPT-2 entirely, or `--limit N` for a smoke
-run. `--help` lists the rest.
+run. `--perplexity-model NAME` scores perplexity with another causal LM for that
+run only (committed comparison: `reports/raid_wiki_v1_perplexity_*`). `--help`
+lists the rest.
 
 ## What is reproducible, and how far
 
