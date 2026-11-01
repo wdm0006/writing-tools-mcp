@@ -560,6 +560,17 @@ Full `doc_burstiness` sweep, one row per observed value:
 | 23440.01 | 0.9909 | 1.0000 | 109 | 1 | 110 | 0 |
 | 62231.50 | 1.0000 | 1.0000 | 110 | 0 | 110 | 0 |
 
+## Held-out check of Youden-J thresholds (perplexity)
+
+Records are split by pair id (`raid-wiki-NNNN` for both the `-human` and `-machine` member) with a salted SHA-256 hash, so no pair appears in both halves. The Youden-J cut (max TPR - FPR) is chosen on the **select** half only and then applied unchanged to the **held-out** half. The in-sample columns score that same cut on the select half it was chosen on.
+
+Both halves come from one corpus and one generator mix, so this bounds overfitting of a chosen cut to its sample but is **not** out-of-distribution evidence.
+
+| statistic | rule | select-half threshold | n select (H/M) | in-sample TPR | in-sample FPR | n held-out (H/M) | held-out TPR | held-out FPR |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `doc_ppl` | `<=` | 49.19 | 62/62 | 0.6935 | 0.1613 | 48/48 | 0.6250 | 0.2500 |
+| `doc_burstiness` | `<=` | 25.99 | 62/62 | 0.5806 | 0.0968 | 48/48 | 0.5000 | 0.2292 |
+
 ## Stylometry FPR at declared TPR targets
 
 This sweeps `flags.confidence_score` alone with a `score >= threshold` rule. That is a *different* classifier from the shipped boolean above, which additionally requires at least two named AI indicators - so the two sections are expected to disagree.
@@ -592,6 +603,16 @@ This sweeps `flags.confidence_score` alone with a `score >= threshold` rule. Tha
 | 0.900 | 0.0455 | 0.0000 | 5 | 105 | 0 | 110 |
 | 0.950 | 0.0273 | 0.0000 | 3 | 107 | 0 | 110 |
 | 1.000 | 0.0182 | 0.0000 | 2 | 108 | 0 | 110 |
+
+## Held-out check of Youden-J thresholds (stylometry)
+
+Records are split by pair id (`raid-wiki-NNNN` for both the `-human` and `-machine` member) with a salted SHA-256 hash, so no pair appears in both halves. The Youden-J cut (max TPR - FPR) is chosen on the **select** half only and then applied unchanged to the **held-out** half. The in-sample columns score that same cut on the select half it was chosen on.
+
+Both halves come from one corpus and one generator mix, so this bounds overfitting of a chosen cut to its sample but is **not** out-of-distribution evidence.
+
+| statistic | rule | select-half threshold | n select (H/M) | in-sample TPR | in-sample FPR | n held-out (H/M) | held-out TPR | held-out FPR |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `confidence_score` | `>=` | 0.60 | 62/62 | 0.1935 | 0.0645 | 48/48 | 0.1250 | 0.0417 |
 
 ## Stylometry flag fire rates by class
 
