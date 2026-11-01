@@ -1,0 +1,51 @@
+{
+  "corpus_sha256": "7f39e6598cff63a62dfbc20f6a92c9d025247de1b2b13838b8ddc5384d56f982",
+  "counts": {
+    "documents": 220,
+    "human": 110,
+    "machine": 110
+  },
+  "filters": {
+    "attack": "none",
+    "domain": "abstracts",
+    "max_words": 500,
+    "min_words": 120
+  },
+  "selection": {
+    "documents_per_generator_model": {
+      "chatgpt": 7,
+      "cohere": 12,
+      "cohere-chat": 12,
+      "gpt2": 13,
+      "gpt3": 7,
+      "gpt4": 6,
+      "llama-chat": 12,
+      "mistral": 12,
+      "mistral-chat": 12,
+      "mpt": 12,
+      "mpt-chat": 5
+    },
+    "eligible_human_source_articles": 1616,
+    "models_available": [
+      "chatgpt",
+      "cohere",
+      "cohere-chat",
+      "gpt2",
+      "gpt3",
+      "gpt4",
+      "llama-chat",
+      "mistral",
+      "mistral-chat",
+      "mpt",
+      "mpt-chat"
+    ],
+    "pairs_requested": 110,
+    "pairs_selected": 110
+  },
+  "source": {
+    "dataset": "liamdugan/raid",
+    "revision": "865cac74188466cb0c3b7574a10204007b57a459",
+    "split": "train",
+    "url": "https://huggingface.co/datasets/liamdugan/raid/resolve/865cac74188466cb0c3b7574a10204007b57a459/train.csv"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "analyses": [
+    "stylometry",
+    "perplexity"
+  ],
+  "baseline": "brown_corpus",
+  "corpus": "benchmarks/corpora/raid_abstracts_v1/corpus.jsonl",
+  "generated_at": "2026-11-01T00:18:07.088723+00:00",
+  "library_versions": {
+    "numpy": "2.5.4",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "python": "3.12.13",
+    "spacy": "3.8.18",
+    "textstat": "0.7.13",
+    "torch": "2.15.0",
+    "transformers": "5.22.1",
+    "wordfreq": "3.1.1"
+  },
+  "n_documents": 220,
+  "perplexity_model": "gpt2"
+}
