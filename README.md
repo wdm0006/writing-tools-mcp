@@ -74,7 +74,7 @@ perplexity:
   language: "en"         # Only "en" is supported
   thresholds:
     ppl_max: 25.0        # Perplexity at or below this counts as an AI signal
-    burstiness_min: 2.5  # Burstiness below this counts as an AI signal
+    burstiness_min: 2.5  # Burstiness below this adds a "low burstiness" reason; it does not gate the flag
 
 stylometry:
   default_baseline: "brown_corpus"  # Used when a stylometric_analysis call omits baseline
@@ -128,7 +128,7 @@ The detection thresholds above are measured against the committed benchmark corp
 [`docs/calibration.md`](docs/calibration.md) publishes confusion matrices for the shipped flags and
 precision/recall/FPR at target true-positive rates for each detector's single measurement. On that
 sample (110 human / 110 machine documents), the shipped stylometry flag detects about 9% of
-machine text at a 1% false-positive rate and the shipped perplexity flag fires on none of it —
+machine text at a 1% false-positive rate and the perplexity flag (`doc_ppl < ppl_max`; single corpus) flags 25 of 110 machine and 0 of 110 human documents when replayed on the recorded measurements —
 higher recall is available at higher false-positive cost, per the published tables. The file is
 regenerated with `uv run benchmarks/calibrate_detection.py` from the benchmark scores; CI fails
 when it drifts, so a threshold change must re-derive the published numbers.
@@ -453,7 +453,7 @@ Below is a detailed reference for each tool provided by the server.
 
 **`perplexity_analysis`**
 
-*   **Description**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2. Computes document-level and sentence-level perplexity along with burstiness (variance of perplexity across sentences). Low perplexity combined with low burstiness is a statistical signal used by AI detectors.
+*   **Description**: Analyze text for perplexity and burstiness to detect AI-generated content using GPT-2. Computes document-level and sentence-level perplexity along with burstiness (variance of perplexity across sentences). `flags.high_ai_probability` is set when `doc_ppl` is below `ppl_max` and burstiness is measurable; burstiness below `burstiness_min` only adds a reason.
 *   **Parameters**:
     *   `text` (`str`): The text to analyze.
     *   `language` (`str`, optional, default=`"en"`): Language code (only "en" supported currently).

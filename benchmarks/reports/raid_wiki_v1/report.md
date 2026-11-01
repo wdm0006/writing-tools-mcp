@@ -89,7 +89,9 @@ A successful analysis can still leave a statistic undefined - the analyzer repor
 
 ## Perplexity statistics swept independently
 
-Each statistic below is swept alone with a `value <= threshold` rule - low perplexity and low burstiness are the machine-like direction the shipped thresholds encode. A single-statistic cut is a *different* classifier from the shipped boolean above, which flags a document only when perplexity is below `ppl_max` **and** burstiness is below `burstiness_min` - so these sweeps are expected to disagree with it.
+Each statistic below is swept alone with a `value <= threshold` rule - low perplexity and low burstiness are the machine-like direction the shipped thresholds encode. A single-statistic cut can differ from the shipped boolean above, which flags a document when perplexity is below `ppl_max` and burstiness is measured (burstiness below `burstiness_min` only adds a reason).
+
+Current flag rule (`doc_ppl < 25.0` with burstiness measured; burstiness is reported but is not a gate) replayed on the recorded measurements of this single corpus: 25/110 machine flagged (TPR), 0/110 human flagged (FPR). The recorded `high_ai_probability` values in `scores.jsonl` predate this rule and are not rewritten.
 
 Documents whose statistic is `null` (or non-finite) on a successful analysis are excluded from that statistic's sweep, never counted as negatives. Failed analyses are excluded too.
 

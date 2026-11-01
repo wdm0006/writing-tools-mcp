@@ -138,15 +138,12 @@ class AIDetectionAnalyzer:
             low_burstiness = burstiness_measured and doc_burstiness < thresholds["burstiness_min"]
             low_ppl = np.isfinite(doc_ppl) and doc_ppl < thresholds["ppl_max"]
 
-            if low_ppl and low_burstiness:
+            if low_ppl and burstiness_measured:
                 flags["high_ai_probability"] = True
-                flags["reasons"].append(
-                    f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}) and low burstiness ({doc_burstiness:.2f} < {thresholds['burstiness_min']})"
-                )
-            elif low_ppl and burstiness_measured:
-                flags["reasons"].append(
-                    f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}) but acceptable burstiness ({doc_burstiness:.2f})"
-                )
+                reason = f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']})"
+                if low_burstiness:
+                    reason += f" and low burstiness ({doc_burstiness:.2f} < {thresholds['burstiness_min']})"
+                flags["reasons"].append(reason)
             elif low_ppl:
                 flags["reasons"].append(
                     f"Low perplexity ({doc_ppl:.2f} < {thresholds['ppl_max']}); "

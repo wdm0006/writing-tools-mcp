@@ -210,7 +210,7 @@ def build_report(
             f"- `doc_burstiness` null on {unmeasured['doc_burstiness']} of {unmeasured['scored']} scored documents.",
             "",
         ]
-        lines += _perplexity_sweep_section(records, tpr_targets)
+        lines += _perplexity_sweep_section(records, tpr_targets, thresholds.get("perplexity.thresholds.ppl_max"))
         lines += _held_out_section(records, ("perplexity",))
 
     if "stylometry" in methods:
@@ -363,16 +363,42 @@ def _sweep_table(pairs, direction: str, places: int) -> List[str]:
     return lines
 
 
-def _perplexity_sweep_section(records: Sequence[Dict[str, Any]], tpr_targets: Sequence[float]) -> List[str]:
+def _replayed_flag_lines(records: Sequence[Dict[str, Any]], ppl_max: Any) -> List[str]:
+    """Current perplexity flag rule replayed on recorded measurements (no re-scoring)."""
+    if isinstance(ppl_max, bool) or not isinstance(ppl_max, (int, float)):
+        return []
+    scored, _ = metrics.partition_outcomes(records, "perplexity")
+    counts = dict.fromkeys(metrics.LABELS, 0)
+    totals = dict.fromkeys(metrics.LABELS, 0)
+    for record in scored:
+        totals[record["label"]] += 1
+        m = record["perplexity"].get("measurements") or {}
+        ppl, b = m.get("doc_ppl"), m.get("doc_burstiness")
+        if isinstance(ppl, (int, float)) and isinstance(b, (int, float)) and ppl < ppl_max:
+            counts[record["label"]] += 1
+    return [
+        f"Current flag rule (`doc_ppl < {ppl_max}` with burstiness measured; burstiness is reported but is "
+        "not a gate) replayed on the recorded measurements of this single corpus: "
+        f"{counts[metrics.MACHINE]}/{totals[metrics.MACHINE]} machine flagged (TPR), "
+        f"{counts[metrics.HUMAN]}/{totals[metrics.HUMAN]} human flagged (FPR). The recorded "
+        "`high_ai_probability` values in `scores.jsonl` predate this rule and are not rewritten.",
+        "",
+    ]
+
+
+def _perplexity_sweep_section(
+    records: Sequence[Dict[str, Any]], tpr_targets: Sequence[float], ppl_max: Any = None
+) -> List[str]:
     lines = [
         "## Perplexity statistics swept independently",
         "",
         "Each statistic below is swept alone with a `value <= threshold` rule - low perplexity and "
         "low burstiness are the machine-like direction the shipped thresholds encode. A "
-        "single-statistic cut is a *different* classifier from the shipped boolean above, which "
-        "flags a document only when perplexity is below `ppl_max` **and** burstiness is below "
-        "`burstiness_min` - so these sweeps are expected to disagree with it.",
+        "single-statistic cut can differ from the shipped boolean above, which flags a document "
+        "when perplexity is below `ppl_max` and burstiness is measured (burstiness below "
+        "`burstiness_min` only adds a reason).",
         "",
+        *_replayed_flag_lines(records, ppl_max),
         "Documents whose statistic is `null` (or non-finite) on a successful analysis are excluded "
         "from that statistic's sweep, never counted as negatives. Failed analyses are excluded too.",
         "",

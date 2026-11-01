@@ -282,6 +282,14 @@ def render_calibration(
     ]
     lines += _shipped_section(records, "stylometry", "`stylometric_analysis` → `flags.high_ai_probability`")
     lines += _shipped_section(records, "perplexity", "`perplexity_analysis` → `flags.high_ai_probability`")
+    lines += [
+        "The recorded perplexity decisions above predate the current rule: `high_ai_probability` is "
+        "now set by `doc_ppl < ppl_max` alone (burstiness only adds a reason), where the recorded run "
+        "also required `doc_burstiness < burstiness_min`, which no document in this corpus satisfied. "
+        "Replaying the current rule on the recorded measurements, with the shipped `ppl_max` of 25.0, "
+        "flags 25 of 110 machine and 0 of 110 human documents (single corpus; no re-scoring).",
+        "",
+    ]
 
     lines += [
         "## Single-measurement sweeps at target true-positive rates",

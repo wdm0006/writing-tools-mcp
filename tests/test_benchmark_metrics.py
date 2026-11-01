@@ -480,7 +480,7 @@ class TestReportRendering:
     def test_report_sweeps_perplexity_statistics_and_states_exclusions(self):
         markdown = self.build()
         assert "## Perplexity statistics swept independently" in markdown
-        assert "**and** burstiness is below" in markdown
+        assert "burstiness is measured" in markdown
         # m1's null burstiness and m2's failed analysis are both excluded, not counted as negatives.
         assert "### `doc_burstiness`" in markdown
         assert "Swept over 1 of 2 scored documents; 1 excluded for a `null` value (0 human / 1 machine)." in markdown
