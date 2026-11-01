@@ -211,9 +211,11 @@ def build_report(
             "",
         ]
         lines += _perplexity_sweep_section(records, tpr_targets)
+        lines += _held_out_section(records, ("perplexity",))
 
     if "stylometry" in methods:
         lines += _sweep_section(records, tpr_targets)
+        lines += _held_out_section(records, ("stylometry",))
         lines += _fire_rate_section(records)
         lines += _indicator_section(records)
         lines += _length_bucket_section(records)
@@ -504,5 +506,53 @@ def _length_bucket_section(records: Sequence[Dict[str, Any]]) -> List[str]:
             f"| {fires['low_ttr'][metrics.HUMAN]} | {fires['low_ttr'][metrics.MACHINE]} "
             f"| {fires['low_hapax'][metrics.HUMAN]} | {fires['low_hapax'][metrics.MACHINE]} |"
         )
+    lines.append("")
+    return lines
+
+
+def _split_values(records: Sequence[Dict[str, Any]], method: str, statistic: str):
+    scored, _ = metrics.partition_outcomes(records, method)
+    values = []
+    for record in scored:
+        block = record[method]
+        value = block.get(statistic) if method == "stylometry" else (block.get("measurements") or {}).get(statistic)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            continue
+        values.append((record["doc_id"], record["label"], float(value)))
+    return values
+
+
+def _held_out_section(records: Sequence[Dict[str, Any]], methods: Sequence[str]) -> List[str]:
+    lines = [
+        f"## Held-out check of Youden-J thresholds ({methods[0]})",
+        "",
+        "Records are split by pair id (`raid-wiki-NNNN` for both the `-human` and `-machine` member) "
+        "with a salted SHA-256 hash, so no pair appears in both halves. The Youden-J cut "
+        "(max TPR - FPR) is chosen on the **select** half only and then applied unchanged to the "
+        "**held-out** half. The in-sample columns score that same cut on the select half it was chosen on.",
+        "",
+        "Both halves come from one corpus and one generator mix, so this bounds overfitting of a "
+        "chosen cut to its sample but is **not** out-of-distribution evidence.",
+        "",
+        "| statistic | rule | select-half threshold | n select (H/M) | in-sample TPR | in-sample FPR "
+        "| n held-out (H/M) | held-out TPR | held-out FPR |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for method in methods:
+        if method == "stylometry":
+            specs = [("confidence_score", metrics.AT_OR_ABOVE)]
+        else:
+            specs = [(name, metrics.AT_OR_BELOW) for name, _ in PERPLEXITY_SWEEPS]
+        for statistic, direction in specs:
+            result = metrics.held_out_evaluation(_split_values(records, method, statistic), direction)
+            rule = ">=" if direction == metrics.AT_OR_ABOVE else "<="
+            sel, held = result["select"], result["held_out"]
+            threshold = "n/a" if result["threshold"] is None else _num(result["threshold"], 2)
+            cells = [f"`{statistic}`", f"`{rule}`", threshold]
+            for half in (sel, held):
+                cells.append(f"{half['n_human']}/{half['n_machine']}")
+                values = half["evaluation"]["metrics"] if half["evaluation"] else {"tpr": None, "fpr": None}
+                cells += [_num(values["tpr"]), _num(values["fpr"])]
+            lines.append("| " + " | ".join(cells) + " |")
     lines.append("")
     return lines

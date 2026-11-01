@@ -9,7 +9,9 @@ Throughout this module the **positive class is machine-generated text**: a
 "false positive" is a human-written document it flagged.
 """
 
+import hashlib
 import math
+import re
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 #: The two labels a corpus record may carry.
@@ -457,3 +459,73 @@ def length_bucket_separation(
 
 def _is_finite_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+SELECT_HALF = "select"
+HELD_OUT_HALF = "held_out"
+SPLIT_SALT = "writing-tools-mcp/raid-pair-split/v1"
+
+_PAIR_SUFFIX = re.compile(r"-(?:human|machine)$")
+
+
+def pair_key(doc_id: str) -> str:
+    """The pair id shared by a human document and its machine counterpart."""
+    return _PAIR_SUFFIX.sub("", doc_id)
+
+
+def split_half(doc_id: str, salt: str = SPLIT_SALT) -> str:
+    """Assign a document to a half as a pure function of its pair id.
+
+    No RNG and no clock: the same pair id always lands in the same half, and
+    both members of a pair share it, so no pair straddles the split.
+    """
+    digest = hashlib.sha256(f"{salt}:{pair_key(doc_id)}".encode("utf-8")).digest()
+    return SELECT_HALF if digest[0] % 2 == 0 else HELD_OUT_HALF
+
+
+def youden_threshold(scored_pairs: Sequence[Tuple[str, float]], direction: str = AT_OR_ABOVE) -> Optional[float]:
+    """Threshold maximizing Youden's J (TPR - FPR); the first in sweep order wins ties."""
+    best, best_j = None, None
+    for point in threshold_sweep(scored_pairs, direction):
+        tpr, fpr = point["metrics"]["tpr"], point["metrics"]["fpr"]
+        if tpr is None or fpr is None:
+            continue
+        if best_j is None or tpr - fpr > best_j:
+            best, best_j = point["threshold"], tpr - fpr
+    return best
+
+
+def evaluate_at_threshold(
+    scored_pairs: Sequence[Tuple[str, float]], threshold: float, direction: str = AT_OR_ABOVE
+) -> Dict[str, Any]:
+    """Confusion matrix and rates for one fixed cut."""
+    _check_direction(direction)
+    if direction == AT_OR_ABOVE:
+        predictions = [(label, score >= threshold) for label, score in scored_pairs]
+    else:
+        predictions = [(label, score <= threshold) for label, score in scored_pairs]
+    matrix = confusion_matrix(predictions)
+    return {"confusion_matrix": matrix, "metrics": classification_metrics(matrix), "n": len(predictions)}
+
+
+def held_out_evaluation(
+    scored: Sequence[Tuple[str, str, float]], direction: str = AT_OR_ABOVE, salt: str = SPLIT_SALT
+) -> Dict[str, Any]:
+    """Pick the Youden-J cut on the select half, report it on both halves.
+
+    ``scored`` holds ``(doc_id, label, value)``. ``threshold`` is None when the
+    select half cannot support a cut (a class is missing).
+    """
+    halves: Dict[str, List[Tuple[str, float]]] = {SELECT_HALF: [], HELD_OUT_HALF: []}
+    for doc_id, label, value in scored:
+        halves[split_half(doc_id, salt)].append((label, value))
+    threshold = youden_threshold(halves[SELECT_HALF], direction)
+    result: Dict[str, Any] = {"threshold": threshold}
+    for name, pairs in halves.items():
+        counts = label_counts([{"label": label} for label, _ in pairs])
+        result[name] = {
+            "n_human": counts[HUMAN],
+            "n_machine": counts[MACHINE],
+            "evaluation": None if threshold is None else evaluate_at_threshold(pairs, threshold, direction),
+        }
+    return result

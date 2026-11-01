@@ -664,3 +664,69 @@ class TestLengthBuckets:
         tied = [self.doc(f"d{i}", HUMAN, 100, 0.5) for i in range(3)]
         markdown = report.build_report(tied, info, {}, ["stylometry"])
         assert "| (empty) | 0 | 0 | n/a | n/a |" in markdown
+
+
+def _ids_by_half(count_each=3):
+    halves = {metrics.SELECT_HALF: [], metrics.HELD_OUT_HALF: []}
+    for number in range(1, 200):
+        pair = f"raid-wiki-{number:04d}"
+        half = metrics.split_half(f"{pair}-human")
+        if len(halves[half]) < count_each:
+            halves[half].append(pair)
+    return halves
+
+
+class TestPairSplit:
+    def test_split_is_a_pure_function_of_pair_id(self):
+        assert metrics.pair_key("raid-wiki-0007-machine") == "raid-wiki-0007"
+        assert metrics.split_half("raid-wiki-0007-human") == metrics.split_half("raid-wiki-0007-human")
+        assert metrics.split_half("raid-wiki-0007-human") == metrics.split_half("raid-wiki-0007-machine")
+
+    def test_no_pair_straddles_the_split_and_both_halves_are_used(self):
+        seen = {}
+        for number in range(1, 111):
+            for suffix in ("human", "machine"):
+                doc_id = f"raid-wiki-{number:04d}-{suffix}"
+                seen.setdefault(metrics.pair_key(doc_id), set()).add(metrics.split_half(doc_id))
+        assert all(len(halves) == 1 for halves in seen.values())
+        assert {next(iter(h)) for h in seen.values()} == {metrics.SELECT_HALF, metrics.HELD_OUT_HALF}
+
+    def test_held_out_evaluation_exact_values(self):
+        halves = _ids_by_half()
+        select, held = halves[metrics.SELECT_HALF], halves[metrics.HELD_OUT_HALF]
+        scored = []
+        for pair, human, machine in zip(select, (1.0, 2.0, 3.0), (7.0, 8.0, 9.0), strict=True):
+            scored += [(f"{pair}-human", HUMAN, human), (f"{pair}-machine", MACHINE, machine)]
+        for pair, human, machine in zip(held, (1.0, 2.0, 8.0), (6.0, 8.5, 9.0), strict=True):
+            scored += [(f"{pair}-human", HUMAN, human), (f"{pair}-machine", MACHINE, machine)]
+        result = metrics.held_out_evaluation(scored)
+        assert result["threshold"] == 7.0
+        in_sample = result["select"]["evaluation"]["metrics"]
+        assert (in_sample["tpr"], in_sample["fpr"]) == (1.0, 0.0)
+        assert (result["select"]["n_human"], result["select"]["n_machine"]) == (3, 3)
+        held_out = result["held_out"]["evaluation"]["metrics"]
+        assert held_out["tpr"] == pytest.approx(2 / 3)
+        assert held_out["fpr"] == pytest.approx(1 / 3)
+        assert (result["held_out"]["n_human"], result["held_out"]["n_machine"]) == (3, 3)
+
+    def test_low_is_machine_direction_and_missing_class(self):
+        halves = _ids_by_half(1)
+        pair = halves[metrics.SELECT_HALF][0]
+        only_machine = [(f"{pair}-machine", MACHINE, 1.0)]
+        assert metrics.held_out_evaluation(only_machine, metrics.AT_OR_BELOW)["threshold"] is None
+        assert metrics.youden_threshold([(HUMAN, 5.0), (MACHINE, 1.0)], metrics.AT_OR_BELOW) == 1.0
+
+    def test_report_section_states_scope_and_numbers(self):
+        halves = _ids_by_half()
+        records = []
+        for pairs in halves.values():
+            for index, pair in enumerate(pairs):
+                records.append(make_record(f"{pair}-human", HUMAN, stylometry=ok_stylometry(False, 0.1 * index)))
+                records.append(
+                    make_record(f"{pair}-machine", MACHINE, stylometry=ok_stylometry(True, 0.5 + 0.1 * index))
+                )
+        lines = report._held_out_section(records, ("stylometry",))
+        text = "\n".join(lines)
+        assert "not** out-of-distribution evidence" in text
+        row = next(line for line in lines if line.startswith("| `confidence_score`"))
+        assert "| 3/3 |" in row
